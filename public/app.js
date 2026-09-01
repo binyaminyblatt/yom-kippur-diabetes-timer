@@ -1223,6 +1223,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function submitUnlockPin() {
+    if (inputPasscodePin && inputPasscodePin.value) {
+      enteredPin = inputPasscodePin.value.replace(/\D/g, '');
+    }
     if (enteredPin === storedPin) {
       closeUnlockModal();
       setAppLocked(false);
