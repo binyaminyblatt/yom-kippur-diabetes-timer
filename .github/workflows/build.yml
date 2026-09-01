@@ -1,0 +1,203 @@
+name: Build & Release Desktop Apps
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Publish as GitHub Release (if running on a tag or manual trigger)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  # -------------------------------------------------------------
+  # macOS Build: Universal Binary (Apple Silicon M1/M2/M3/M4 + Intel x86_64)
+  # -------------------------------------------------------------
+  build-macos:
+    name: Build macOS Universal (DMG & ZIP)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Generate icons
+        run: npm run icons
+
+      - name: Check Apple Code Signing & Notarization Credentials
+        id: check-cert
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.CSC_LINK }}" ]; then
+            echo "✓ Apple Certificate detected in secrets. Enabling signing & notarization..."
+            echo "SIGN_STATUS=signed" >> $GITHUB_ENV
+            echo "CSC_IDENTITY_AUTO_DISCOVERY=true" >> $GITHUB_ENV
+          else
+            echo "⚠ No Apple Certificate found in secrets. Bypassing signing requirement and tagging as unsigned..."
+            echo "SIGN_STATUS=unsigned" >> $GITHUB_ENV
+            echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> $GITHUB_ENV
+          fi
+
+      - name: Build macOS Universal DMG and ZIP
+        run: |
+          npx electron-builder --mac --universal \
+            -c.mac.artifactName='${productName}-${version}-${arch}-${env.SIGN_STATUS}.${ext}' \
+            -c.dmg.artifactName='${productName}-${version}-${arch}-${env.SIGN_STATUS}.${ext}'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SIGN_STATUS: ${{ env.SIGN_STATUS }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ env.CSC_IDENTITY_AUTO_DISCOVERY }}
+
+      - name: Upload macOS Universal Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macOS-Universal-${{ env.SIGN_STATUS }}-Build
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.blockmap
+          if-no-files-found: warn
+
+  # -------------------------------------------------------------
+  # Windows Build: Installer & Portable ZIP
+  # -------------------------------------------------------------
+  build-windows:
+    name: Build Windows (EXE, MSI & ZIP)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Generate icons
+        run: npm run icons
+
+      - name: Build Windows Packages
+        run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-Build
+          path: |
+            dist/*.exe
+            dist/*.msi
+            dist/*.zip
+            dist/*.blockmap
+          if-no-files-found: warn
+
+  # -------------------------------------------------------------
+  # Linux Build: AppImage, DEB, RPM
+  # -------------------------------------------------------------
+  build-linux:
+    name: Build Linux (AppImage, DEB, RPM)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools rpm
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Generate icons
+        run: npm run icons
+
+      - name: Build Linux Packages
+        run: npm run build:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Linux-Build
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+            dist/*.pacman
+            dist/*.snap
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: warn
+
+  # -------------------------------------------------------------
+  # Release Job: Automatically publish to GitHub Releases if tagged
+  # -------------------------------------------------------------
+  create-release:
+    name: Create GitHub Release
+    needs: [build-macos, build-windows, build-linux]
+    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.publish_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Display downloaded assets
+        run: ls -R release-assets/
+
+      - name: Publish Release to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/**/*.dmg
+            release-assets/**/*.zip
+            release-assets/**/*.exe
+            release-assets/**/*.msi
+            release-assets/**/*.AppImage
+            release-assets/**/*.deb
+            release-assets/**/*.rpm
+            release-assets/**/*.pacman
+            release-assets/**/*.snap
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,101 @@
+{
+  "name": "yom-kippur-diabetes-timer",
+  "version": "1.0.0",
+  "description": "Yom Kippur Diabetes Eating Interval (Achila l'Shiurim) Timer with LibreLinkUp CGM Integration and Airplane Bing-Bong Chimes",
+  "main": "main.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev:server": "node server.js",
+    "electron": "electron .",
+    "dev": "concurrently \"DEV_MODE=true node server.js\" \"DEV_MODE=true electron .\"",
+    "build:mac": "electron-builder --mac --universal",
+    "build:mac:universal": "electron-builder --mac --universal",
+    "build:mac:x64": "electron-builder --mac --x64",
+    "build:mac:arm64": "electron-builder --mac --arm64",
+    "build:mac:all": "electron-builder --mac --universal --x64 --arm64",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "test": "node tests/test-app.js",
+    "test:e2e": "node tests/test-e2e.js",
+    "icons": "node scripts/generate-icons.js"
+  },
+  "keywords": [
+    "yom-kippur",
+    "diabetes",
+    "shiurim",
+    "timer",
+    "cgm",
+    "librelinkup",
+    "electron"
+  ],
+  "author": {
+    "name": "Yom Kippur Timer",
+    "email": "support@yomkippurtimer.local"
+  },
+  "homepage": "https://github.com/yom-kippur-timer/yom-kippur-diabetes-timer",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "kosher-zmanim": "^0.9.0",
+    "librelinkup-api-client": "^1.0.2"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "playwright": "^1.62.1",
+    "sharp": "^0.35.4"
+  },
+  "build": {
+    "appId": "com.yomkippur.diabetestimer",
+    "productName": "Yom Kippur Diabetes Timer",
+    "icon": "build/icon.png",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "mac": {
+      "category": "public.app-category.medical",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "darkModeSupport": true,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "win": {
+      "target": [
+        "zip",
+        "dir",
+        "msi"
+      ]
+    },
+    "linux": {
+      "category": "Utility",
+      "maintainer": "Yom Kippur Timer <support@yomkippurtimer.local>",
+      "target": [
+        "AppImage",
+        "deb",
+        "pacman",
+        "snap",
+        "rpm"
+      ]
+    }
+  },
+  "optionalDependencies": {
+    "dmg-license": "^1.0.11"
+  }
+}
