@@ -93,13 +93,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnReset = document.getElementById('btnReset');
   const btnFastForward = document.getElementById('btnFastForward');
 
-  // DOM Elements - Fast End
+  // DOM Elements - Fast End & Yom Kippur Schedule
   const headerFastEndCountdown = document.getElementById('headerFastEndCountdown');
   const displayFastEndTime = document.getElementById('displayFastEndTime');
+  const displayFastEndDate = document.getElementById('displayFastEndDate');
   const displayFastEndLocation = document.getElementById('displayFastEndLocation');
   const displayFastEndRemaining = document.getElementById('displayFastEndRemaining');
   const displayRemainingIntervals = document.getElementById('displayRemainingIntervals');
+  const displayFastStartNote = document.getElementById('displayFastStartNote');
+  const fastStatusBadge = document.getElementById('fastStatusBadge');
   const selectFastEndExtra = document.getElementById('selectFastEndExtra');
+  const selectFastScheduleMode = document.getElementById('selectFastScheduleMode');
+  const autoZmanimSummary = document.getElementById('autoZmanimSummary');
+  const manualFastFields = document.getElementById('manualFastFields');
+  const zmanimHebrewYear = document.getElementById('zmanimHebrewYear');
+  const summaryFastStart = document.getElementById('summaryFastStart');
+  const summaryFastEnd = document.getElementById('summaryFastEnd');
   const inputFastEndTime = document.getElementById('inputFastEndTime');
   const inputFastEndDate = document.getElementById('inputFastEndDate');
 
@@ -149,6 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnTestModalA = document.getElementById('btnTestModalA');
   const btnTestModalB = document.getElementById('btnTestModalB');
   const btnTestModalAlarm = document.getElementById('btnTestModalAlarm');
+  const btnTestModalVoice = document.getElementById('btnTestModalVoice');
 
   // --------------------------------------------------------------------------
   // 2. Initialize Chart & Services
@@ -170,17 +180,28 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // --------------------------------------------------------------------------
-  // 3. Yom Kippur Fast End (Motzei Yom Kippur) via kosher-zmanim & Geolocation
+  // 3. Yom Kippur Fast Schedule & Zmanim Engine (kosher-zmanim & Geolocation)
   // --------------------------------------------------------------------------
   const todayStr = new Date().toISOString().split('T')[0];
+  let scheduleMode = 'auto'; // 'auto' | 'manual'
+  let fastStartDate = null;
+  let fastStartTime = null;
+  let fastStartTimeISO = null;
+  let fastEndDate = null;
   let fastEndTime = '19:45';
-  let fastEndDate = todayStr;
+  let fastEndTimeISO = null;
+  let fastScheduleStatus = 'BEFORE_FAST';
+  let isYomKippurNight = false;
+  let isYomKippurDay = false;
+  let hebrewYearStr = 'Yom Kippur';
   let detectedLat = 31.7683;
   let detectedLng = 35.2137;
   let detectedLocationName = 'Auto-Detected Location';
   let extraMinutes = 18;
 
   try {
+    const savedMode = localStorage.getItem('yom_kippur_schedule_mode');
+    if (savedMode) scheduleMode = savedMode;
     const savedEndTime = localStorage.getItem('yom_kippur_fast_end_time');
     if (savedEndTime) fastEndTime = savedEndTime;
     const savedEndDate = localStorage.getItem('yom_kippur_fast_end_date');
@@ -193,31 +214,70 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (e) {}
 
   displayFastEndTime.textContent = fastEndTime;
-  inputFastEndTime.value = fastEndTime;
-  inputFastEndDate.value = fastEndDate;
+  if (inputFastEndTime) inputFastEndTime.value = fastEndTime;
+  if (inputFastEndDate && fastEndDate) inputFastEndDate.value = fastEndDate;
 
-  // Function: Fetch exact Fast End time from server kosher-zmanim calculation
+  // Helper: Format date string for user-friendly display (e.g., 'Mon, Sep 21')
+  function formatDisplayDate(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  // Function: Fetch exact Yom Kippur Schedule & Fast End time from server kosher-zmanim calculation
   async function fetchZmanimFastEnd() {
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jerusalem';
+      const bodyPayload = {
+        lat: detectedLat,
+        lng: detectedLng,
+        timeZoneId: tz,
+        additionalMinutes: extraMinutes,
+        isManual: scheduleMode === 'manual'
+      };
+
+      if (scheduleMode === 'manual' && fastEndDate) {
+        bodyPayload.manualDate = fastEndDate;
+        bodyPayload.manualTime = fastEndTime;
+      }
+
       const resp = await fetch('/api/zmanim/fast-end', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lat: detectedLat,
-          lng: detectedLng,
-          timeZoneId: tz,
-          additionalMinutes: extraMinutes,
-          date: fastEndDate
-        })
+        body: JSON.stringify(bodyPayload)
       });
       const data = await resp.json();
-      if (data.success && data.fastEndTimeFormatted) {
+      if (data.success) {
+        fastStartDate = data.fastStartDate || data.erevDate;
+        fastStartTime = data.fastStartTimeFormatted;
+        fastStartTimeISO = data.fastStartTimeISO;
+        fastEndDate = data.fastEndDate || data.ykDate;
         fastEndTime = data.fastEndTimeFormatted;
+        fastEndTimeISO = data.fastEndTimeISO;
+        fastScheduleStatus = data.status;
+        isYomKippurNight = Boolean(data.isYomKippurNight);
+        isYomKippurDay = Boolean(data.isYomKippurDay);
+        hebrewYearStr = data.hebrewDateStr || (data.targetYear ? `Yom Kippur ${data.targetYear}` : 'Yom Kippur');
+
         displayFastEndTime.textContent = fastEndTime;
-        inputFastEndTime.value = fastEndTime;
+        if (inputFastEndTime) inputFastEndTime.value = fastEndTime;
+        if (inputFastEndDate) inputFastEndDate.value = fastEndDate;
+
         const locTitle = data.locationName || detectedLocationName;
         displayFastEndLocation.textContent = `📍 ${locTitle} (+${extraMinutes}m)`;
+
+        if (summaryFastStart) {
+          summaryFastStart.textContent = `${formatDisplayDate(fastStartDate)} at ${fastStartTime || '--:--'}`;
+        }
+        if (summaryFastEnd) {
+          summaryFastEnd.textContent = `${formatDisplayDate(fastEndDate)} at ${fastEndTime} (+${extraMinutes}m)`;
+        }
+        if (zmanimHebrewYear) {
+          zmanimHebrewYear.textContent = hebrewYearStr;
+        }
+
         updateFastEndCountdown();
       }
     } catch (err) {
@@ -263,38 +323,110 @@ document.addEventListener('DOMContentLoaded', () => {
     const now = new Date();
     wallClockEl.textContent = now.toLocaleTimeString([], { hour12: false });
 
-    // Target datetime
-    const [hours, minutes] = fastEndTime.split(':').map(Number);
-    const target = new Date(fastEndDate);
-    target.setHours(hours, minutes, 0, 0);
+    if (!fastEndTimeISO && !fastEndTime) return;
 
-    const diffMs = target.getTime() - now.getTime();
-    const diffSecs = Math.floor(diffMs / 1000);
+    // Determine target Date objects
+    let targetEnd;
+    if (fastEndTimeISO) {
+      targetEnd = new Date(fastEndTimeISO);
+    } else {
+      const [hours, minutes] = fastEndTime.split(':').map(Number);
+      targetEnd = new Date(fastEndDate || todayStr);
+      targetEnd.setHours(hours, minutes, 0, 0);
+    }
 
-    if (diffSecs <= 0) {
+    let targetStart = null;
+    if (fastStartTimeISO) {
+      targetStart = new Date(fastStartTimeISO);
+    } else if (fastStartDate && fastStartTime) {
+      const [sH, sM] = fastStartTime.split(':').map(Number);
+      targetStart = new Date(fastStartDate);
+      targetStart.setHours(sH, sM, 0, 0);
+    }
+
+    const nowMs = now.getTime();
+    const diffMsToEnd = targetEnd.getTime() - nowMs;
+    const diffSecsToEnd = Math.floor(diffMsToEnd / 1000);
+
+    const isFastStarted = targetStart ? (nowMs >= targetStart.getTime()) : true;
+    const isFastEnded = diffSecsToEnd <= 0;
+
+    // Date text beside time display
+    if (displayFastEndDate && fastEndDate) {
+      const isToday = now.toISOString().split('T')[0] === fastEndDate;
+      displayFastEndDate.textContent = isToday ? '(Tonight)' : `(${formatDisplayDate(fastEndDate)})`;
+    }
+
+    if (isFastEnded) {
       headerFastEndCountdown.textContent = 'CONCLUDED';
       headerFastEndCountdown.classList.add('fast-end-concluded');
       displayFastEndRemaining.textContent = '🎉 Fast Concluded (Motzei Yom Kippur)';
       displayFastEndRemaining.classList.add('concluded');
       displayRemainingIntervals.textContent = '0 intervals left (Fast has ended)';
+      if (fastStatusBadge) {
+        fastStatusBadge.className = 'fast-status-chip badge-concluded';
+        fastStatusBadge.textContent = '✓ Concluded';
+      }
+      if (displayFastStartNote) {
+        displayFastStartNote.textContent = '';
+      }
       return;
     }
 
-    const h = Math.floor(diffSecs / 3600);
-    const m = Math.floor((diffSecs % 3600) / 60);
-    const s = diffSecs % 60;
-    const pad = (n) => String(n).padStart(2, '0');
-
-    headerFastEndCountdown.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
     headerFastEndCountdown.classList.remove('fast-end-concluded');
-    displayFastEndRemaining.textContent = `${h}h ${m}m ${s}s remaining`;
     displayFastEndRemaining.classList.remove('concluded');
 
-    // Calculate remaining eating intervals until the fast ends
+    const pad = (n) => String(n).padStart(2, '0');
+    const h = Math.floor(diffSecsToEnd / 3600);
+    const m = Math.floor((diffSecsToEnd % 3600) / 60);
+    const s = diffSecsToEnd % 60;
+
+    // Shiurim interval calculations
     const intervalSecs = timer ? timer.intervalSeconds : 540;
-    const intervalsLeft = Math.floor(diffSecs / intervalSecs);
+    const intervalsLeft = Math.floor(diffSecsToEnd / intervalSecs);
     const intervalMinStr = Math.round(intervalSecs / 60);
-    displayRemainingIntervals.textContent = `~${intervalsLeft} eating intervals left (${intervalMinStr}m each)`;
+
+    if (isFastStarted) {
+      // FAST ACTIVE (During Yom Kippur Night or Yom Kippur Day)
+      headerFastEndCountdown.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+      displayFastEndRemaining.textContent = `${h}h ${m}m ${s}s remaining`;
+      displayRemainingIntervals.textContent = `~${intervalsLeft} eating intervals left (${intervalMinStr}m each)`;
+
+      if (fastStatusBadge) {
+        const todayIso = now.toISOString().split('T')[0];
+        if (isYomKippurNight || (fastStartDate && todayIso === fastStartDate && now.getHours() >= 17)) {
+          fastStatusBadge.className = 'fast-status-chip badge-yk-night';
+          fastStatusBadge.textContent = '🌙 Yom Kippur Night';
+        } else {
+          fastStatusBadge.className = 'fast-status-chip badge-yk-day';
+          fastStatusBadge.textContent = '☀️ Yom Kippur Day';
+        }
+      }
+      if (displayFastStartNote) {
+        displayFastStartNote.textContent = '';
+      }
+    } else {
+      // BEFORE FAST (Upcoming Yom Kippur)
+      const days = Math.floor(h / 24);
+      const remH = h % 24;
+      if (days >= 1) {
+        headerFastEndCountdown.textContent = `${days}d ${pad(remH)}h`;
+        displayFastEndRemaining.textContent = `${days}d ${remH}h ${m}m until Motzei YK`;
+      } else {
+        headerFastEndCountdown.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+        displayFastEndRemaining.textContent = `${h}h ${m}m ${s}s until Motzei YK`;
+      }
+
+      displayRemainingIntervals.textContent = `~${intervalsLeft} intervals during fast (${intervalMinStr}m each)`;
+
+      if (fastStatusBadge) {
+        fastStatusBadge.className = 'fast-status-chip badge-upcoming';
+        fastStatusBadge.textContent = '⏳ Upcoming Fast';
+      }
+      if (displayFastStartNote && fastStartDate && fastStartTime) {
+        displayFastStartNote.textContent = `Starts ${formatDisplayDate(fastStartDate)} at ${fastStartTime}`;
+      }
+    }
   }
 
   setInterval(updateFastEndCountdown, 1000);
@@ -418,6 +550,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // 7. CGM Reading & Auto-Silencing Alarms
   // --------------------------------------------------------------------------
   function handleCGMReading(data) {
+    if (data.isSensorWarmingUp || data.glucose === null || data.glucose === undefined) {
+      glucoseValue.textContent = '--';
+      trendArrowSymbol.textContent = '⏳';
+      trendArrowText.textContent = data.warning || 'Warming up / Syncing';
+      trendArrowBadge.className = 'trend-badge trend-steady';
+      glucoseValue.classList.remove('val-low', 'val-high');
+      glucoseStatusBadge.className = 'glucose-status-pill status-in-range';
+      glucoseStatusBadge.textContent = 'Sensor Syncing';
+      cgmUpdatedTime.textContent = 'Syncing...';
+      hideAlarmBanner();
+      if (data.history && data.history.length > 0) {
+        chart.setData(data.history, data.targetLow || 70, data.targetHigh || 180, libre.unit);
+      }
+      return;
+    }
+
     const formatted = libre.formatGlucose(data.glucose);
     glucoseValue.textContent = formatted.value;
     glucoseUnitDisplay.textContent = formatted.unit;
@@ -540,6 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function hideAlarmBanner() {
     alarmBanner.classList.add('hidden');
+    audio.stopAlarms();
     if (currentAlarmTimer) {
       clearTimeout(currentAlarmTimer);
       currentAlarmTimer = null;
@@ -548,6 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   btnSnoozeAlarm.addEventListener('click', () => {
     alarmSnoozedUntil = Date.now() + 15 * 60 * 1000; // Snooze for 15 minutes
+    audio.stopAlarms();
     hideAlarmBanner();
   });
 
@@ -700,6 +850,17 @@ document.addEventListener('DOMContentLoaded', () => {
       inputVolume.value = v;
       volumeVal.textContent = `${Math.round(v * 100)}%`;
     }
+    const savedSpeech = localStorage.getItem('yom_kippur_speech_enabled');
+    if (savedSpeech !== null) {
+      const isSpeech = savedSpeech === 'true';
+      audio.setSpeech(isSpeech);
+      if (checkSpeech) checkSpeech.checked = isSpeech;
+    }
+    const savedAutoShutoff = localStorage.getItem('yom_kippur_auto_shutoff');
+    if (savedAutoShutoff !== null) {
+      audio.setAutoShutoffSeconds(savedAutoShutoff);
+      if (inputAutoShutoff) inputAutoShutoff.value = savedAutoShutoff;
+    }
   } catch (e) {}
 
   selectQuickSoundProfile.addEventListener('change', (e) => {
@@ -736,10 +897,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isLocked) return;
     inputIntervalMin.value = Math.floor(timer.targetInterval / 60);
     inputIntervalSec.value = timer.targetInterval % 60;
-    inputFastEndTime.value = fastEndTime;
-    inputFastEndDate.value = fastEndDate;
+
+    // Yom Kippur Schedule fields
+    if (selectFastScheduleMode) selectFastScheduleMode.value = scheduleMode;
+    if (inputFastEndTime) inputFastEndTime.value = fastEndTime;
+    if (inputFastEndDate) inputFastEndDate.value = fastEndDate || '';
+    if (scheduleMode === 'manual') {
+      if (manualFastFields) manualFastFields.classList.remove('hidden');
+      if (autoZmanimSummary) autoZmanimSummary.classList.add('hidden');
+    } else {
+      if (manualFastFields) manualFastFields.classList.add('hidden');
+      if (autoZmanimSummary) autoZmanimSummary.classList.remove('hidden');
+    }
+
     selectModalSoundProfile.value = audio.soundProfile;
-    inputVolume.value = audio.volume;
+    inputVolume.value = audio.masterVolume;
     inputAutoShutoff.value = audio.autoShutoffSeconds;
     checkSpeech.checked = audio.speechEnabled;
     checkCGMEnabled.checked = libre.isEnabled;
@@ -759,6 +931,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     settingsModal.classList.remove('hidden');
+  }
+
+  if (selectFastScheduleMode) {
+    selectFastScheduleMode.addEventListener('change', (e) => {
+      const mode = e.target.value;
+      if (mode === 'manual') {
+        if (manualFastFields) manualFastFields.classList.remove('hidden');
+        if (autoZmanimSummary) autoZmanimSummary.classList.add('hidden');
+      } else {
+        if (manualFastFields) manualFastFields.classList.add('hidden');
+        if (autoZmanimSummary) autoZmanimSummary.classList.remove('hidden');
+      }
+    });
   }
 
   function closeSettingsModal() {
@@ -1024,6 +1209,29 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {}
   });
 
+  if (checkSpeech) {
+    checkSpeech.addEventListener('change', () => {
+      const isEnabled = checkSpeech.checked;
+      audio.setSpeech(isEnabled);
+      try {
+        localStorage.setItem('yom_kippur_speech_enabled', String(isEnabled));
+      } catch (e) {}
+      if (isEnabled) {
+        audio.init();
+        audio.speak('Voice alerts enabled');
+      }
+    });
+  }
+
+  if (inputAutoShutoff) {
+    inputAutoShutoff.addEventListener('change', () => {
+      audio.setAutoShutoffSeconds(inputAutoShutoff.value);
+      try {
+        localStorage.setItem('yom_kippur_auto_shutoff', inputAutoShutoff.value);
+      } catch (e) {}
+    });
+  }
+
   btnTestModalA.addEventListener('click', () => {
     audio.init();
     audio.playChimeA();
@@ -1034,8 +1242,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   btnTestModalAlarm.addEventListener('click', () => {
     audio.init();
-    audio.playGlucoseAlert(true);
+    audio.playGlucoseAlert(true, 15);
   });
+  if (btnTestModalVoice) {
+    btnTestModalVoice.addEventListener('click', () => {
+      audio.init();
+      const prevSpeech = audio.speechEnabled;
+      audio.setSpeech(true);
+      audio.speak('Voice alerts are active. Yom Kippur timer is running.');
+      if (!prevSpeech && checkSpeech && !checkSpeech.checked) {
+        setTimeout(() => {
+          if (!checkSpeech.checked) audio.setSpeech(false);
+        }, 4000);
+      }
+    });
+  }
 
   btnSaveSettings.addEventListener('click', async () => {
     const mins = parseInt(inputIntervalMin.value, 10) || 0;
@@ -1044,20 +1265,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     timer.setInterval(totalSeconds);
 
-    // Save Fast End Time
-    fastEndTime = inputFastEndTime.value || '19:45';
-    fastEndDate = inputFastEndDate.value || todayStr;
-    displayFastEndTime.textContent = fastEndTime;
-    try {
-      localStorage.setItem('yom_kippur_fast_end_time', fastEndTime);
-      localStorage.setItem('yom_kippur_fast_end_date', fastEndDate);
-    } catch (e) {}
-    updateFastEndCountdown();
+    // Save Fast Schedule Settings
+    if (selectFastScheduleMode) {
+      scheduleMode = selectFastScheduleMode.value;
+      try {
+        localStorage.setItem('yom_kippur_schedule_mode', scheduleMode);
+      } catch (e) {}
+    }
+
+    if (scheduleMode === 'manual') {
+      fastEndTime = inputFastEndTime.value || '19:45';
+      fastEndDate = inputFastEndDate.value || todayStr;
+      displayFastEndTime.textContent = fastEndTime;
+      try {
+        localStorage.setItem('yom_kippur_fast_end_time', fastEndTime);
+        localStorage.setItem('yom_kippur_fast_end_date', fastEndDate);
+      } catch (e) {}
+    } else {
+      try {
+        localStorage.removeItem('yom_kippur_fast_end_date');
+      } catch (e) {}
+    }
+
+    await fetchZmanimFastEnd();
 
     applySoundProfile(selectModalSoundProfile.value);
     audio.setVolume(inputVolume.value);
     audio.setAutoShutoffSeconds(inputAutoShutoff.value);
     audio.setSpeech(checkSpeech.checked);
+    try {
+      localStorage.setItem('yom_kippur_speech_enabled', String(checkSpeech.checked));
+      localStorage.setItem('yom_kippur_auto_shutoff', inputAutoShutoff.value);
+    } catch (e) {}
 
     libre.isEnabled = checkCGMEnabled.checked;
     libre.isDemo = checkDemoMode.checked;

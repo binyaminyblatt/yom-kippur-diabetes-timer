@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
-const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,14 +21,6 @@ const REGION_URLS = {
   'AP': 'https://api-ap.libreview.io',
   'CA': 'https://api-ca.libreview.io',
   'AE': 'https://api-ae.libreview.io'
-};
-
-const DEFAULT_HEADERS = {
-  'Content-Type': 'application/json',
-  'Accept': 'application/json',
-  'version': '4.16.0',
-  'product': 'llu.android',
-  'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Mobile; rv:128.0) Gecko/128.0 Firefox/128.0'
 };
 
 // Helper: Calculate SHA-256 hash of userId for modern Account-Id header
@@ -77,7 +68,7 @@ setInterval(() => {
   const last = demoState.currentGlucose;
   const drift = (Math.random() - 0.49) * 4;
   let next = Math.round(Math.max(50, Math.min(260, last + drift)));
-  
+
   let arrow = 3;
   const diff = next - last;
   if (diff > 3) arrow = 5;
@@ -88,7 +79,7 @@ setInterval(() => {
   demoState.currentGlucose = next;
   demoState.trendArrow = arrow;
   demoState.lastUpdated = new Date().toISOString();
-  
+
   demoState.history.push({
     Value: next,
     ValueInMgPerDl: next,
@@ -108,8 +99,44 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Helper: Format log timestamp
+function formatLogTime() {
+  const d = new Date();
+  return `[${d.toTimeString().split(' ')[0]}.${String(d.getMilliseconds()).padStart(3, '0')}]`;
+}
+
+// In-memory ring buffer for recent CGM requests & debug logs (last 100 entries)
+const cgmRequestLogs = [];
+function logGlucoseActivity(endpoint, type, details, meta = null) {
+  const time = formatLogTime();
+  const entry = {
+    timestamp: new Date().toISOString(),
+    formattedTime: time,
+    endpoint,
+    type, // 'INFO' | 'SUCCESS' | 'WARN' | 'ERROR'
+    details,
+    meta: meta ? (typeof meta === 'object' ? meta : { raw: String(meta) }) : null
+  };
+  cgmRequestLogs.push(entry);
+  if (cgmRequestLogs.length > 100) {
+    cgmRequestLogs.shift();
+  }
+  const icon = type === 'SUCCESS' ? '✓' : (type === 'ERROR' ? '❌' : (type === 'WARN' ? '⚠️' : '📡'));
+  console.log(`[CGM Activity] ${time} ${icon} [${endpoint}] ${details}`);
+}
+
+// Endpoint: Fetch all recent glucose request logs
+app.get('/api/libre/logs', (req, res) => {
+  res.json({
+    success: true,
+    total: cgmRequestLogs.length,
+    logs: cgmRequestLogs
+  });
+});
+
 // Demo Data Endpoint
 app.get('/api/libre/demo', (req, res) => {
+  logGlucoseActivity('/api/libre/demo', 'INFO', `Returning demo glucose: ${demoState.currentGlucose} mg/dL (arrow: ${demoState.trendArrow})`);
   res.json({
     success: true,
     isDemo: true,
@@ -140,15 +167,10 @@ app.post('/api/libre/demo/set', (req, res) => {
       ValueInMgPerDl: demoState.currentGlucose,
       Timestamp: demoState.lastUpdated
     });
+    logGlucoseActivity('/api/libre/demo/set', 'SUCCESS', `Simulated glucose set to ${demoState.currentGlucose} mg/dL, arrow: ${demoState.trendArrow}`);
   }
   res.json({ success: true, currentGlucose: demoState.currentGlucose });
 });
-
-// Helper: Format log timestamp
-function formatLogTime() {
-  const d = new Date();
-  return `[${d.toTimeString().split(' ')[0]}.${String(d.getMilliseconds()).padStart(3, '0')}]`;
-}
 
 // Helper: Diagnose LibreLinkUp authentication & connection problems
 function diagnoseLibreProblem(err, rawData = null, region = 'US') {
@@ -248,6 +270,7 @@ app.post('/api/libre/test-connection', async (req, res) => {
 
     if (!email || !password) {
       addLog('❌ Validation failed: Email and password are required.');
+      logGlucoseActivity('/api/libre/test-connection', 'WARN', 'Test connection validation failed: missing email or password.');
       return res.status(400).json({
         success: false,
         error: 'Email and password are required',
@@ -258,96 +281,89 @@ app.post('/api/libre/test-connection', async (req, res) => {
 
     const maskedEmail = email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
     addLog(`🚀 Initializing LibreLinkUp connection test for account: ${maskedEmail} (Region: ${region})`);
+    logGlucoseActivity('/api/libre/test-connection', 'INFO', `Starting test connection for: ${maskedEmail} (Region: ${region})`);
 
     const ClientClass = await getLibreLinkClient();
+    if (!ClientClass) {
+      throw new Error('librelinkup-api-client library could not be loaded.');
+    }
+
     const defaultApiUrl = REGION_URLS[region.toUpperCase()] || REGION_URLS['GLOBAL'];
     addLog(`🌐 Target endpoint: ${defaultApiUrl}`);
+    addLog('📦 Using librelinkup-api-client engine...');
 
-    if (ClientClass) {
-      addLog('📦 Using librelinkup-api-client engine...');
-      const client = new ClientClass({
-        email: email.trim(),
-        password: password.trim(),
-        apiUrl: defaultApiUrl,
-        lluVersion: '4.16.0'
-      });
+    const client = new ClientClass({
+      email: email.trim(),
+      password: password.trim(),
+      apiUrl: defaultApiUrl,
+      lluVersion: '4.16.0'
+    });
 
-      addLog('🔐 Step 1/3: Authenticating with Abbott servers...');
-      const loginResp = await client.login();
-      addLog(`✓ Step 1 Complete: Authentication successful (Status: ${loginResp?.status})`);
+    addLog('🔐 Step 1/3: Authenticating with Abbott servers...');
+    const loginResp = await client.login();
+    addLog(`✓ Step 1 Complete: Authentication successful (Status: ${loginResp?.status})`);
 
-      addLog('🔍 Step 2/3: Querying connected patient sensors...');
-      const connectionsResp = await client.fetchConnections();
-      const connections = connectionsResp?.data || [];
-      addLog(`✓ Step 2 Complete: Found ${connections.length} connected patient(s)`);
+    addLog('🔍 Step 2/3: Querying connected patient sensors...');
+    const connectionsResp = await client.fetchConnections();
+    const connections = connectionsResp?.data || [];
+    addLog(`✓ Step 2 Complete: Found ${connections.length} connected patient(s)`);
 
-      if (!connections.length) {
-        addLog('⚠️ Warning: No patient connections found. Ensure sensor sharing is accepted.');
-        return res.json({
-          success: true,
-          hasPatient: false,
-          user: client.me,
-          warning: 'Login succeeded, but no connected patient was found in LibreLinkUp.',
-          suggestion: 'Ensure the sensor wearer has sent a sharing invitation and you have accepted it in the LibreLinkUp app.',
-          logs
-        });
-      }
-
-      const primaryPatient = connections[0];
-      const patientName = `${primaryPatient.firstName || ''} ${primaryPatient.lastName || ''}`.trim() || 'Patient';
-      addLog(`👤 Primary Patient: "${patientName}" (Patient ID: ${primaryPatient.patientId || primaryPatient.id})`);
-
-      addLog('📊 Step 3/3: Fetching latest real-time glucose reading & graph data...');
-      const readingResp = await client.fetchReading();
-      const connectionData = readingResp?.data?.connection;
-      const glucoseItem = connectionData?.glucoseMeasurement;
-      const graphData = readingResp?.data?.graphData || [];
-
-      let glucoseVal = glucoseItem?.ValueInMgPerDl || glucoseItem?.Value || 0;
-      let trendArrow = glucoseItem?.TrendArrow || 3;
-      let timestamp = glucoseItem?.Timestamp || new Date().toISOString();
-
-      addLog(`✓ Step 3 Complete: Latest Glucose: ${glucoseVal} mg/dL, Trend Arrow: ${trendArrow}, History Points: ${graphData.length}`);
-      addLog('🎉 All tests passed successfully! LibreLinkUp connection is fully operational.');
-
+    if (!connections.length) {
+      addLog('⚠️ Warning: No patient connections found. Ensure sensor sharing is accepted.');
+      logGlucoseActivity('/api/libre/test-connection', 'WARN', `Authenticated ${maskedEmail} but no shared patient found.`);
       return res.json({
         success: true,
-        hasPatient: true,
-        patientName,
-        patientId: primaryPatient.patientId || primaryPatient.id,
-        latestGlucose: glucoseVal,
-        trendArrow,
-        timestamp,
-        historyPointsCount: graphData.length,
+        hasPatient: false,
+        user: client.me,
+        warning: 'Login succeeded, but no connected patient was found in LibreLinkUp.',
+        suggestion: 'Ensure the sensor wearer has sent a sharing invitation and you have accepted it in the LibreLinkUp app.',
         logs
       });
     }
 
-    // Fallback: Direct Axios implementation with verbose logs
-    addLog('📡 Running direct Abbott API test...');
-    const loginResp = await axios.post(
-      `${defaultApiUrl}/llu/auth/login`,
-      { email: email.trim(), password: password.trim() },
-      { headers: DEFAULT_HEADERS, timeout: 15000 }
-    );
+    const primaryPatient = connections[0];
+    const patientName = `${primaryPatient.firstName || ''} ${primaryPatient.lastName || ''}`.trim() || 'Patient';
+    const patientId = primaryPatient.patientId || primaryPatient.id;
+    addLog(`👤 Primary Patient: "${patientName}" (Patient ID: ${patientId})`);
 
-    const data = loginResp.data;
-    if (data.status !== 0 && data.status !== 2) {
-      throw new Error(data.error?.message || 'Login failed. Invalid credentials.');
+    addLog('📊 Step 3/3: Fetching latest real-time glucose reading & graph data...');
+    const readingResp = await client.fetchReading();
+    const connectionData = readingResp?.data?.connection || readingResp?.connection;
+    const glucoseItem = connectionData?.glucoseMeasurement || connectionData?.glucoseItem;
+    const graphData = readingResp?.data?.graphData || readingResp?.graphData || [];
+
+    let glucoseVal = glucoseItem?.ValueInMgPerDl !== undefined ? glucoseItem.ValueInMgPerDl : (glucoseItem?.Value !== undefined ? glucoseItem.Value : 0);
+    let trendArrow = glucoseItem?.TrendArrow !== undefined ? glucoseItem.TrendArrow : 3;
+    let timestamp = glucoseItem?.Timestamp || new Date().toISOString();
+
+    if (!glucoseVal && graphData.length > 0) {
+      const lastPt = graphData[graphData.length - 1];
+      glucoseVal = lastPt.ValueInMgPerDl || lastPt.Value || 0;
+      trendArrow = lastPt.TrendArrow || 3;
+      timestamp = lastPt.Timestamp || timestamp;
     }
 
-    addLog('✓ Direct login successful!');
+    addLog(`✓ Step 3 Complete: Latest Glucose: ${glucoseVal} mg/dL, Trend Arrow: ${trendArrow}, History Points: ${graphData.length}`);
+    addLog('🎉 All tests passed successfully! LibreLinkUp connection is fully operational.');
+    logGlucoseActivity('/api/libre/test-connection', 'SUCCESS', `Test connection verified: Glucose ${glucoseVal} mg/dL for ${patientName} (${graphData.length} points)`);
+
     return res.json({
       success: true,
       hasPatient: true,
-      patientName: 'Libre User',
+      patientName,
+      patientId,
+      latestGlucose: glucoseVal,
+      trendArrow,
+      timestamp,
+      historyPointsCount: graphData.length,
       logs
     });
   } catch (err) {
     const errorDetails = err?.message || String(err);
     addLog(`❌ Connection Error: ${errorDetails}`);
-    const diagnosis = diagnoseLibreProblem(err, err.response?.data, req.body?.region);
+    const diagnosis = diagnoseLibreProblem(err, null, req.body?.region);
     addLog(`💡 Diagnosis: ${diagnosis.title} — ${diagnosis.suggestion}`);
+    logGlucoseActivity('/api/libre/test-connection', 'ERROR', `Test connection failed: ${diagnosis.friendlyMessage}`, { error: errorDetails });
 
     res.status(400).json({
       success: false,
@@ -368,126 +384,67 @@ app.post('/api/libre/login', async (req, res) => {
     const { email, password, region = 'US' } = req.body;
 
     if (!email || !password) {
+      logGlucoseActivity('/api/libre/login', 'WARN', 'Login attempt rejected: missing email or password.');
       return res.status(400).json({ success: false, error: 'Email and password are required' });
     }
+
+    const maskedEmail = email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
+    logGlucoseActivity('/api/libre/login', 'INFO', `Logging in account: ${maskedEmail} (Region: ${region})`);
 
     const defaultApiUrl = REGION_URLS[region.toUpperCase()] || REGION_URLS['GLOBAL'];
     const ClientClass = await getLibreLinkClient();
 
-    if (ClientClass) {
-      try {
-        const client = new ClientClass({
-          email: email.trim(),
-          password: password.trim(),
-          apiUrl: defaultApiUrl,
-          lluVersion: '4.16.0'
-        });
-
-        await client.login();
-        const connectionsResp = await client.fetchConnections();
-        const connections = connectionsResp?.data || [];
-
-        if (!connections.length) {
-          return res.json({
-            success: true,
-            token: client.accessToken,
-            userId: client.me?.id,
-            accountId: client.me?.id ? calculateAccountId(client.me.id) : '',
-            baseUrl: client.apiUrl || defaultApiUrl,
-            region,
-            patientId: null,
-            patientName: 'Self',
-            warning: 'No shared patient connections found.'
-          });
-        }
-
-        const primaryPatient = connections[0];
-        const patientId = primaryPatient.id || primaryPatient.patientId;
-        const patientName = `${primaryPatient.firstName || ''} ${primaryPatient.lastName || ''}`.trim() || 'Patient';
-
-        return res.json({
-          success: true,
-          token: client.accessToken,
-          userId: client.me?.id,
-          accountId: client.me?.id ? calculateAccountId(client.me.id) : '',
-          baseUrl: client.apiUrl || defaultApiUrl,
-          region,
-          patientId,
-          patientName,
-          patientData: primaryPatient
-        });
-      } catch (clientErr) {
-        console.warn('[LibreLinkUp] Client instance note, trying direct auth:', clientErr.message);
-      }
+    if (!ClientClass) {
+      throw new Error('librelinkup-api-client library could not be loaded.');
     }
 
-    // Direct Axios fallback
-    const baseUrl = defaultApiUrl;
-    const loginUrl = `${baseUrl}/llu/auth/login`;
+    const client = new ClientClass({
+      email: email.trim(),
+      password: password.trim(),
+      apiUrl: defaultApiUrl,
+      lluVersion: '4.16.0'
+    });
 
-    const loginResponse = await axios.post(
-      loginUrl,
-      { email: email.trim(), password: password.trim() },
-      { headers: DEFAULT_HEADERS, timeout: 15000 }
-    );
+    await client.login();
+    const connectionsResp = await client.fetchConnections();
+    const connections = connectionsResp?.data || [];
 
-    const data = loginResponse.data;
-    if (data.status !== 0 && data.status !== 2) {
-      const diagnosis = diagnoseLibreProblem(null, data, region);
-      return res.status(401).json({
-        success: false,
-        error: diagnosis.friendlyMessage,
-        suggestion: diagnosis.suggestion
+    if (!connections.length) {
+      logGlucoseActivity('/api/libre/login', 'WARN', `Login succeeded for ${maskedEmail} but no shared connections found.`);
+      return res.json({
+        success: true,
+        token: client.accessToken,
+        userId: client.me?.id,
+        accountId: client.me?.id ? calculateAccountId(client.me.id) : '',
+        baseUrl: client.apiUrl || defaultApiUrl,
+        region,
+        patientId: null,
+        patientName: 'Self',
+        warning: 'No shared patient connections found.'
       });
     }
 
-    let activeBaseUrl = baseUrl;
-    if (data.data?.redirect && data.data?.region) {
-      const redirectRegion = data.data.region.toUpperCase();
-      if (REGION_URLS[redirectRegion]) {
-        activeBaseUrl = REGION_URLS[redirectRegion];
-      }
-    }
-
-    const authTicket = data.data?.authTicket;
-    const user = data.data?.user;
-
-    if (!authTicket?.token || !user?.id) {
-      return res.status(401).json({ success: false, error: 'Invalid response from LibreLinkUp server.' });
-    }
-
-    const token = authTicket.token;
-    const userId = user.id;
-    const accountId = calculateAccountId(userId);
-
-    const connectionsResponse = await axios.get(`${activeBaseUrl}/llu/connections`, {
-      headers: {
-        ...DEFAULT_HEADERS,
-        'Authorization': `Bearer ${token}`,
-        'Account-Id': accountId
-      },
-      timeout: 15000
-    });
-
-    const connections = connectionsResponse.data?.data || [];
-    const primaryPatient = connections[0] || {};
-    const patientId = primaryPatient.id || primaryPatient.patientId || null;
+    const primaryPatient = connections[0];
+    const patientId = primaryPatient.patientId || primaryPatient.id;
     const patientName = `${primaryPatient.firstName || ''} ${primaryPatient.lastName || ''}`.trim() || 'Patient';
 
-    res.json({
+    logGlucoseActivity('/api/libre/login', 'SUCCESS', `Login succeeded: Patient="${patientName}" (ID: ${patientId})`);
+
+    return res.json({
       success: true,
-      token,
-      userId,
-      accountId,
-      baseUrl: activeBaseUrl,
+      token: client.accessToken,
+      userId: client.me?.id,
+      accountId: client.me?.id ? calculateAccountId(client.me.id) : '',
+      baseUrl: client.apiUrl || defaultApiUrl,
       region,
       patientId,
       patientName,
       patientData: primaryPatient
     });
   } catch (error) {
-    console.error('LibreLinkUp login error:', error.response?.data || error.message);
-    const diagnosis = diagnoseLibreProblem(error, error.response?.data, req.body?.region);
+    console.error('LibreLinkUp login error:', error.message);
+    const diagnosis = diagnoseLibreProblem(error, null, req.body?.region);
+    logGlucoseActivity('/api/libre/login', 'ERROR', `Login error: ${diagnosis.friendlyMessage}`, { raw: error.message });
     res.status(401).json({
       success: false,
       error: diagnosis.friendlyMessage,
@@ -501,68 +458,160 @@ app.post('/api/libre/login', async (req, res) => {
 // LibreLinkUp Fetch Latest Glucose & Graph Data
 // ============================================================================
 app.post('/api/libre/readings', async (req, res) => {
-  try {
-    const { token, accountId, baseUrl, patientId, region = 'US' } = req.body;
+  const { token, accountId, baseUrl, patientId, region = 'US', email, password, userId } = req.body;
+  const maskedEmail = email ? email.replace(/(.{2})(.*)(@.*)/, '$1***$3') : 'N/A';
 
-    if (!token || !patientId) {
-      return res.status(400).json({ success: false, error: 'Token and Patient ID are required' });
+  logGlucoseActivity('/api/libre/readings', 'INFO', `Fetch request: patientId=${patientId || '(auto)'}, region=${region}, account=${maskedEmail}`);
+
+  try {
+    let activeBaseUrl = baseUrl || REGION_URLS[region.toUpperCase()] || REGION_URLS['GLOBAL'];
+    let activeAccountId = accountId || (userId ? calculateAccountId(userId) : '');
+    let activeToken = token;
+    let activePatientId = patientId;
+
+    const ClientClass = await getLibreLinkClient();
+    if (!ClientClass) {
+      throw new Error('librelinkup-api-client library could not be loaded.');
     }
 
-    const activeBaseUrl = baseUrl || REGION_URLS[region.toUpperCase()] || REGION_URLS['GLOBAL'];
-    const graphUrl = `${activeBaseUrl}/llu/connections/${patientId}/graph`;
+    if (!email || !password) {
+      logGlucoseActivity('/api/libre/readings', 'WARN', 'Readings request missing email/password credentials.');
+      return res.status(400).json({ success: false, error: 'Email and password are required for LibreLinkUp' });
+    }
 
-    const response = await axios.get(graphUrl, {
-      headers: {
-        ...DEFAULT_HEADERS,
-        'Authorization': `Bearer ${token}`,
-        'Account-Id': accountId
-      },
-      timeout: 15000
+    logGlucoseActivity('/api/libre/readings', 'INFO', 'Using librelinkup-api-client to fetch readings...');
+    const client = new ClientClass({
+      email: email.trim(),
+      password: password.trim(),
+      apiUrl: activeBaseUrl,
+      patientId: activePatientId || undefined,
+      lluVersion: '4.16.0'
     });
 
-    const data = response.data?.data;
-    if (!data) {
-      return res.status(500).json({ success: false, error: 'Empty response from CGM server' });
+    if (activeToken) {
+      client.accessToken = activeToken;
     }
 
-    const currentMeasurement = data.connection?.glucoseMeasurement;
-    const graphData = data.graphData || [];
+    let rawReading = null;
+    let didReauth = false;
+
+    try {
+      rawReading = await client.fetchReading();
+    } catch (fetchErr) {
+      logGlucoseActivity('/api/libre/readings', 'INFO', `Initial fetch note (${fetchErr.message}). Performing login refresh...`);
+      await client.login();
+      rawReading = await client.fetchReading();
+      activeToken = client.accessToken;
+      activeAccountId = client.me?.id ? calculateAccountId(client.me.id) : activeAccountId;
+      activeBaseUrl = client.apiUrl || activeBaseUrl;
+      didReauth = true;
+    }
+
+    logGlucoseActivity('/api/libre/readings', 'INFO', `LibreClient reading response: status=${rawReading?.status}, keys=[${Object.keys(rawReading || {})}]`);
+
+    const data = rawReading?.data || rawReading;
+
+    if (!data) {
+      logGlucoseActivity('/api/libre/readings', 'WARN', 'No reading payload returned from Abbott. Returning graceful sensor warmup status.');
+      return res.json({
+        success: true,
+        isSensorWarmingUp: true,
+        glucose: null,
+        trendArrow: 3,
+        timestamp: new Date().toISOString(),
+        targetLow: 70,
+        targetHigh: 180,
+        isHigh: false,
+        isLow: false,
+        isUrgentLow: false,
+        history: [],
+        warning: 'Sensor is warming up or synchronizing latest data.',
+        newToken: didReauth ? activeToken : undefined,
+        newAccountId: didReauth ? activeAccountId : undefined,
+        newBaseUrl: didReauth ? activeBaseUrl : undefined,
+        newPatientId: didReauth ? activePatientId : undefined
+      });
+    }
+
+    const connection = data.connection || {};
+    const graphData = Array.isArray(data.graphData) ? data.graphData : [];
+    const latestGraphPoint = graphData.length > 0 ? graphData[graphData.length - 1] : null;
+
+    const currentMeasurement = connection.glucoseMeasurement || connection.glucoseItem || data.glucoseMeasurement || data.glucoseItem || latestGraphPoint;
+
+    const targetLow = connection.targetLow || 70;
+    const targetHigh = connection.targetHigh || 180;
 
     if (!currentMeasurement) {
-      return res.status(500).json({ success: false, error: 'No recent glucose measurement available' });
+      logGlucoseActivity('/api/libre/readings', 'WARN', 'No current measurement item in payload. Returning warmup state.');
+      return res.json({
+        success: true,
+        isSensorWarmingUp: true,
+        glucose: null,
+        trendArrow: 3,
+        timestamp: new Date().toISOString(),
+        targetLow,
+        targetHigh,
+        isHigh: false,
+        isLow: false,
+        isUrgentLow: false,
+        history: graphData.map(pt => ({
+          Value: pt.ValueInMgPerDl !== undefined ? pt.ValueInMgPerDl : pt.Value,
+          ValueInMgPerDl: pt.ValueInMgPerDl !== undefined ? pt.ValueInMgPerDl : pt.Value,
+          Timestamp: pt.Timestamp || pt.timestamp
+        })),
+        warning: 'Sensor is warming up or synchronizing latest data.',
+        newToken: didReauth ? activeToken : undefined,
+        newAccountId: didReauth ? activeAccountId : undefined,
+        newBaseUrl: didReauth ? activeBaseUrl : undefined,
+        newPatientId: didReauth ? activePatientId : undefined
+      });
     }
 
-    const glucoseVal = currentMeasurement.ValueInMgPerDl || currentMeasurement.Value;
-    const trendArrow = currentMeasurement.TrendArrow || 3;
-    const timestamp = currentMeasurement.Timestamp || new Date().toISOString();
-    const isHigh = currentMeasurement.isHigh || glucoseVal > (data.connection?.targetHigh || 180);
-    const isLow = currentMeasurement.isLow || glucoseVal < (data.connection?.targetLow || 70);
+    const rawVal = currentMeasurement.ValueInMgPerDl !== undefined ? currentMeasurement.ValueInMgPerDl : currentMeasurement.Value;
+    const glucoseVal = (rawVal !== undefined && rawVal !== null && !isNaN(rawVal)) ? Number(rawVal) : null;
+    const trendArrow = currentMeasurement.TrendArrow !== undefined ? currentMeasurement.TrendArrow : (currentMeasurement.Trend !== undefined ? currentMeasurement.Trend : 3);
+    const timestamp = currentMeasurement.Timestamp || currentMeasurement.timestamp || new Date().toISOString();
+
+    const isHigh = Boolean(currentMeasurement.isHigh || (glucoseVal !== null && glucoseVal > targetHigh));
+    const isLow = Boolean(currentMeasurement.isLow || (glucoseVal !== null && glucoseVal < targetLow));
+    const isUrgentLow = Boolean(glucoseVal !== null && glucoseVal < 55);
+
+    logGlucoseActivity('/api/libre/readings', 'SUCCESS', `Glucose extracted: ${glucoseVal} mg/dL (arrow: ${trendArrow}, points: ${graphData.length}, high=${isHigh}, low=${isLow})`);
 
     res.json({
       success: true,
       glucose: glucoseVal,
       trendArrow: trendArrow,
       timestamp: timestamp,
-      targetLow: data.connection?.targetLow || 70,
-      targetHigh: data.connection?.targetHigh || 180,
+      targetLow: targetLow,
+      targetHigh: targetHigh,
       isHigh,
       isLow,
-      isUrgentLow: glucoseVal < 55,
+      isUrgentLow,
       history: graphData.map(pt => ({
-        Value: pt.ValueInMgPerDl || pt.Value,
-        ValueInMgPerDl: pt.ValueInMgPerDl || pt.Value,
-        Timestamp: pt.Timestamp
-      }))
+        Value: pt.ValueInMgPerDl !== undefined ? pt.ValueInMgPerDl : pt.Value,
+        ValueInMgPerDl: pt.ValueInMgPerDl !== undefined ? pt.ValueInMgPerDl : pt.Value,
+        Timestamp: pt.Timestamp || pt.timestamp
+      })),
+      newToken: didReauth ? activeToken : undefined,
+      newAccountId: didReauth ? activeAccountId : undefined,
+      newBaseUrl: didReauth ? activeBaseUrl : undefined,
+      newPatientId: didReauth ? activePatientId : undefined
     });
   } catch (error) {
-    console.error('LibreLinkUp readings error:', error.response?.data || error.message);
-    const diagnosis = diagnoseLibreProblem(error, error.response?.data, req.body?.region);
-    const status = error.response?.status || 500;
+    const errorDetails = error.message;
+    const diagnosis = diagnoseLibreProblem(error, null, req.body?.region);
+    const status = error.message && error.message.includes('Invalid credentials') ? 401 : 502;
+
+    logGlucoseActivity('/api/libre/readings', 'ERROR', `Failed to fetch readings: ${diagnosis.friendlyMessage} (HTTP ${status})`, { error: errorDetails });
+
     res.status(status).json({
       success: false,
       error: diagnosis.friendlyMessage,
       errorTitle: diagnosis.title,
-      suggestion: diagnosis.suggestion
+      suggestion: diagnosis.suggestion,
+      rawError: errorDetails
     });
   }
 });
@@ -591,77 +640,203 @@ const TIMEZONE_LOCATIONS = {
   'Africa/Johannesburg': { lat: -26.2041, lng: 28.0473, name: 'Johannesburg, South Africa' }
 };
 
-// Zmanim Fast End Calculation via kosher-zmanim
+// Zmanim Fast End & Yom Kippur Schedule Calculation via kosher-zmanim
 const KosherZmanim = require('kosher-zmanim');
+
+// Helper: Calculate full Yom Kippur Schedule & Status
+function calculateYomKippurSchedule({
+  lat,
+  lng,
+  elevation = 0,
+  timeZoneId,
+  additionalMinutes = 0,
+  method = 'geonim85',
+  manualDate = null,
+  manualTime = null,
+  isManual = false,
+  now = null
+}) {
+  const tz = timeZoneId || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jerusalem';
+
+  // Auto-resolve coordinates from timezone if not provided or default
+  let locationName = 'Auto Location';
+  if (!lat || !lng) {
+    const match = TIMEZONE_LOCATIONS[tz] || TIMEZONE_LOCATIONS['Asia/Jerusalem'];
+    lat = match.lat;
+    lng = match.lng;
+    locationName = match.name;
+  } else if (TIMEZONE_LOCATIONS[tz]) {
+    locationName = TIMEZONE_LOCATIONS[tz].name;
+  }
+
+  const parsedLat = parseFloat(lat) || 31.7683;
+  const parsedLng = parseFloat(lng) || 35.2137;
+  const parsedElev = parseFloat(elevation) || 0;
+  const parsedExtra = parseInt(additionalMinutes, 10) || 0;
+
+  const location = new KosherZmanim.GeoLocation(locationName, parsedLat, parsedLng, parsedElev, tz);
+  const zcal = new KosherZmanim.ComplexZmanimCalendar(location);
+
+  // Determine reference time in target timezone
+  let nowDt;
+  if (now) {
+    if (typeof now === 'string') {
+      nowDt = KosherZmanim.DateTime.fromISO(now, { zone: tz });
+      if (!nowDt.isValid) nowDt = KosherZmanim.DateTime.fromJSDate(new Date(now)).setZone(tz);
+    } else {
+      nowDt = KosherZmanim.DateTime.fromJSDate(now).setZone(tz);
+    }
+  } else {
+    nowDt = KosherZmanim.DateTime.now().setZone(tz);
+  }
+
+  let erevDt, ykDt, targetYear = null;
+
+  if (isManual && manualDate) {
+    // Manual date mode specified by user
+    ykDt = KosherZmanim.DateTime.fromISO(manualDate, { zone: tz });
+    erevDt = ykDt.minus({ days: 1 });
+  } else {
+    // Auto-detect Yom Kippur using Jewish Calendar
+    const jc = new KosherZmanim.JewishCalendar();
+    jc.setDate(nowDt);
+
+    const jMonth = jc.getJewishMonth();
+    const jDay = jc.getJewishDayOfMonth();
+    const jYear = jc.getJewishYear();
+
+    if (jMonth < KosherZmanim.JewishCalendar.TISHREI) {
+      targetYear = jYear + 1;
+    } else if (jMonth === KosherZmanim.JewishCalendar.TISHREI) {
+      targetYear = (jDay <= 10) ? jYear : jYear + 1;
+    } else {
+      targetYear = jYear + 1;
+    }
+
+    const erevYK = new KosherZmanim.JewishCalendar(targetYear, KosherZmanim.JewishCalendar.TISHREI, 9);
+    const ykDay = new KosherZmanim.JewishCalendar(targetYear, KosherZmanim.JewishCalendar.TISHREI, 10);
+    erevDt = erevYK.getDate().setZone(tz);
+    ykDt = ykDay.getDate().setZone(tz);
+  }
+
+  // Calculate Erev Yom Kippur Zmanim (Fast Start)
+  zcal.setDate(erevDt);
+  const erevSunset = zcal.getSunset();
+  const candleLighting = zcal.getCandleLighting();
+  const fastStart = candleLighting || (erevSunset ? erevSunset.minus({ minutes: 18 }) : null);
+
+  // Calculate Yom Kippur Day Zmanim (Fast End)
+  zcal.setDate(ykDt);
+  const ykSunset = zcal.getSunset();
+  let baseTzais = zcal.getTzaisGeonim8Point5Degrees();
+
+  if (method === 'sunset72') {
+    baseTzais = zcal.getTzais72();
+  } else if (method === 'sunset42' && ykSunset) {
+    baseTzais = ykSunset.plus({ minutes: 42 });
+  } else if (method === 'sunset50' && ykSunset) {
+    baseTzais = ykSunset.plus({ minutes: 50 });
+  }
+
+  if (!baseTzais && ykSunset) {
+    baseTzais = ykSunset.plus({ minutes: 42 });
+  }
+
+  let finalFastEnd;
+  if (isManual && manualTime) {
+    const [mH, mM] = manualTime.split(':').map(Number);
+    finalFastEnd = ykDt.set({ hour: mH || 19, minute: mM || 45, second: 0, millisecond: 0 });
+  } else {
+    finalFastEnd = baseTzais ? baseTzais.plus({ minutes: parsedExtra }) : null;
+  }
+
+  // Determine fast status
+  const nowMillis = nowDt.toMillis();
+  const fastStartMillis = fastStart ? fastStart.toMillis() : null;
+  const fastEndMillis = finalFastEnd ? finalFastEnd.toMillis() : null;
+
+  let status = 'BEFORE_FAST';
+  if (fastEndMillis && nowMillis >= fastEndMillis) {
+    status = 'FAST_CONCLUDED';
+  } else if (fastStartMillis && nowMillis >= fastStartMillis) {
+    status = 'FAST_ACTIVE';
+  }
+
+  const isYomKippurNight = (status === 'FAST_ACTIVE' && nowDt.toISODate() === erevDt.toISODate());
+  const isYomKippurDay = (status === 'FAST_ACTIVE' && nowDt.toISODate() === ykDt.toISODate());
+
+  const hf = new KosherZmanim.HebrewDateFormatter();
+  hf.setHebrewFormat(false);
+  const jcDisplay = new KosherZmanim.JewishCalendar(targetYear || 5787, KosherZmanim.JewishCalendar.TISHREI, 10);
+  const hebrewDateStr = hf.format(jcDisplay);
+
+  return {
+    success: true,
+    status,
+    isYomKippurNight,
+    isYomKippurDay,
+    isManual: Boolean(isManual && manualDate),
+    targetYear,
+    hebrewDateStr,
+
+    // Fast Start info (Erev Yom Kippur)
+    erevDate: erevDt.toISODate(),
+    fastStartDate: erevDt.toISODate(),
+    fastStartTimeFormatted: fastStart ? fastStart.setZone(tz).toFormat('HH:mm') : null,
+    fastStartTimeISO: fastStart ? fastStart.toISO() : null,
+    candleLightingFormatted: candleLighting ? candleLighting.setZone(tz).toFormat('HH:mm') : null,
+    erevSunsetFormatted: erevSunset ? erevSunset.setZone(tz).toFormat('HH:mm') : null,
+
+    // Fast End info (Yom Kippur Day)
+    ykDate: ykDt.toISODate(),
+    fastEndDate: ykDt.toISODate(),
+    fastEndTimeFormatted: finalFastEnd ? finalFastEnd.setZone(tz).toFormat('HH:mm') : '19:45',
+    fastEndTimeISO: finalFastEnd ? finalFastEnd.toISO() : null,
+    ykSunsetFormatted: ykSunset ? ykSunset.setZone(tz).toFormat('HH:mm') : null,
+    tzaisBaseFormatted: baseTzais ? baseTzais.setZone(tz).toFormat('HH:mm') : null,
+
+    additionalMinutes: parsedExtra,
+    locationName,
+    location: {
+      latitude: parsedLat,
+      longitude: parsedLng,
+      timeZoneId: tz
+    },
+    // Backwards compatibility field
+    date: ykDt.toISODate()
+  };
+}
 
 app.post('/api/zmanim/fast-end', (req, res) => {
   try {
-    let {
+    const {
       lat,
       lng,
       elevation = 0,
       timeZoneId,
       date = null,
+      manualDate = null,
+      manualTime = null,
+      isManual = false,
       additionalMinutes = 0,
-      method = 'geonim85'
+      method = 'geonim85',
+      now = null
     } = req.body;
 
-    const tz = timeZoneId || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jerusalem';
-
-    // Auto-resolve coordinates from timezone if not provided or default
-    let locationName = 'Auto Location';
-    if (!lat || !lng) {
-      const match = TIMEZONE_LOCATIONS[tz] || TIMEZONE_LOCATIONS['Asia/Jerusalem'];
-      lat = match.lat;
-      lng = match.lng;
-      locationName = match.name;
-    } else if (TIMEZONE_LOCATIONS[tz]) {
-      locationName = TIMEZONE_LOCATIONS[tz].name;
-    }
-
-    const parsedLat = parseFloat(lat) || 31.7683;
-    const parsedLng = parseFloat(lng) || 35.2137;
-    const parsedElev = parseFloat(elevation) || 0;
-    const parsedExtra = parseInt(additionalMinutes, 10) || 0;
-
-    const location = new KosherZmanim.GeoLocation(locationName, parsedLat, parsedLng, parsedElev, tz);
-    const zmanimCalendar = new KosherZmanim.ComplexZmanimCalendar(location);
-
-    const targetDate = date ? new Date(date) : new Date();
-    zmanimCalendar.setDate(targetDate);
-
-    const sunset = zmanimCalendar.getSunset();
-    let baseTzais = zmanimCalendar.getTzaisGeonim8Point5Degrees();
-
-    if (method === 'sunset72') {
-      baseTzais = zmanimCalendar.getTzais72();
-    } else if (method === 'sunset42' && sunset) {
-      baseTzais = sunset.plus({ minutes: 42 });
-    } else if (method === 'sunset50' && sunset) {
-      baseTzais = sunset.plus({ minutes: 50 });
-    }
-
-    if (!baseTzais && sunset) {
-      baseTzais = sunset.plus({ minutes: 42 });
-    }
-
-    const finalFastEnd = baseTzais ? baseTzais.plus({ minutes: parsedExtra }) : null;
-
-    res.json({
-      success: true,
-      fastEndTimeFormatted: finalFastEnd ? finalFastEnd.setZone(tz).toFormat('HH:mm') : '19:45',
-      fastEndTimeISO: finalFastEnd ? finalFastEnd.toISO() : null,
-      sunsetFormatted: sunset ? sunset.setZone(tz).toFormat('HH:mm') : null,
-      tzaisBaseFormatted: baseTzais ? baseTzais.setZone(tz).toFormat('HH:mm') : null,
-      additionalMinutes: parsedExtra,
-      locationName,
-      location: {
-        latitude: parsedLat,
-        longitude: parsedLng,
-        timeZoneId: tz
-      },
-      date: targetDate.toISOString().split('T')[0]
+    const result = calculateYomKippurSchedule({
+      lat,
+      lng,
+      elevation,
+      timeZoneId,
+      additionalMinutes,
+      method,
+      manualDate: manualDate || (isManual ? date : null),
+      manualTime,
+      isManual: isManual || Boolean(manualDate),
+      now: now || (date && !isManual ? date : null)
     });
+
+    res.json(result);
   } catch (err) {
     console.error('Zmanim calculation error:', err);
     res.status(500).json({ success: false, error: err.message });

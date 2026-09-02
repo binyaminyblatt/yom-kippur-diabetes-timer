@@ -8,17 +8,54 @@ class AudioEngine {
     this.masterVolume = 0.50; // Comfortable gentle default
     this.isMuted = false;
     this.speechEnabled = false;
-    this.autoShutoffSeconds = 5;
+    this.autoShutoffSeconds = 20; // Default 20s allows full 15-pulse sequence
     this.soundProfile = 'soft-cabin'; // 'zen-bowl', 'warm-marimba', 'whisper-bell', 'soft-cabin', 'water-pluck'
+    this._activeOscillators = [];
+    this._activeUtterances = [];
+    this.voices = [];
+    this._initSpeech();
+  }
+
+  _initSpeech() {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const loadVoices = () => {
+        try {
+          this.voices = window.speechSynthesis.getVoices() || [];
+        } catch (e) {
+          this.voices = [];
+        }
+      };
+      loadVoices();
+      if (typeof window.speechSynthesis.onvoiceschanged !== 'undefined') {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+      }
+    }
   }
 
   init() {
-    if (!this.ctx) {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      this.ctx = new AudioCtx();
-    }
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+    if (typeof window === 'undefined') return;
+    try {
+      if (!this.ctx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          this.ctx = new AudioCtx();
+        }
+      }
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+    } catch (e) {}
+
+    // Wake up Web Speech engine on user gesture
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+        if (!this.voices || this.voices.length === 0) {
+          this.voices = window.speechSynthesis.getVoices() || [];
+        }
+      } catch (e) {}
     }
   }
 
@@ -32,14 +69,39 @@ class AudioEngine {
 
   setMuted(muted) {
     this.isMuted = !!muted;
+    if (this.isMuted) {
+      this.stopAlarms();
+    }
   }
 
   setSpeech(enabled) {
     this.speechEnabled = !!enabled;
+    // Note: Do not force synchronous init() on startup to respect browser autoplay policies
   }
 
   setAutoShutoffSeconds(secs) {
-    this.autoShutoffSeconds = Math.max(2, Math.min(30, parseInt(secs, 10) || 5));
+    this.autoShutoffSeconds = Math.max(2, Math.min(60, parseInt(secs, 10) || 20));
+  }
+
+  /**
+   * Stop any ongoing glucose alarm sound pulses and speech immediately.
+   */
+  stopAlarms() {
+    if (this._activeOscillators && this._activeOscillators.length > 0) {
+      this._activeOscillators.forEach(osc => {
+        try {
+          osc.stop();
+          osc.disconnect();
+        } catch (e) {}
+      });
+      this._activeOscillators = [];
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
+      this._activeUtterances = [];
+    }
   }
 
   /**
@@ -71,6 +133,12 @@ class AudioEngine {
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(this.ctx.destination);
+
+    // Track active oscillator for cancel/snooze safety
+    this._activeOscillators.push(osc);
+    osc.onended = () => {
+      this._activeOscillators = this._activeOscillators.filter(o => o !== osc);
+    };
 
     osc.start(startTime);
     osc.stop(startTime + duration + 0.1);
@@ -207,65 +275,109 @@ class AudioEngine {
   }
 
   /**
-   * Glucose Alert: Gentle pulsing warm chime (auto-stops after 3 gentle pulses)
+   * Glucose Alert: Gentle pulsing warm chime repeating 15 times (~20-second duration)
    */
-  playGlucoseAlert(isLow = true) {
+  playGlucoseAlert(isLow = true, repeats = 15) {
     this.init();
     if (this.isMuted) return;
 
     const t = this.ctx.currentTime;
     const base = isLow ? 349.23 : 440.00; // F4 for low, A4 for high
+    const repeatCount = Math.max(1, parseInt(repeats, 10) || 15);
 
-    // Pulse 1
-    this._playGentleSine(base, t, 1.0, 0.32, 0.06);
-    this._playGentleSine(base * 1.25, t + 0.20, 1.2, 0.28, 0.06);
-
-    // Pulse 2 (gentle repeat)
-    this._playGentleSine(base, t + 1.4, 1.0, 0.32, 0.06);
-    this._playGentleSine(base * 1.25, t + 1.60, 1.2, 0.28, 0.06);
-
-    // Pulse 3
-    this._playGentleSine(base, t + 2.8, 1.0, 0.32, 0.06);
-    this._playGentleSine(base * 1.25, t + 3.00, 1.4, 0.30, 0.06);
+    // Schedule 15 gentle harmonic pulses spaced by ~1.35s
+    for (let i = 0; i < repeatCount; i++) {
+      const startTime = t + i * 1.35;
+      this._playGentleSine(base, startTime, 1.0, 0.32, 0.06);
+      this._playGentleSine(base * 1.25, startTime + 0.20, 1.2, 0.28, 0.06);
+    }
 
     if (this.speechEnabled) {
       const msg = isLow ? 'Low glucose alert' : 'High glucose alert';
-      setTimeout(() => this.speak(msg), 3200);
+      // Announce clearly near start
+      setTimeout(() => this.speak(msg), 700);
+      // If 15 pulses, repeat voice announcement midway (~9.5s) for safety
+      if (repeatCount >= 10) {
+        setTimeout(() => {
+          if (this.speechEnabled && !this.isMuted) {
+            this.speak(msg);
+          }
+        }, 9500);
+      }
     }
   }
 
   /**
-   * Urgent Low (<55 mg/dL) Alert: Distinct 3-pulse gentle warning
-   * Auto-shuts off in ~4 seconds
+   * Urgent Low (<55 mg/dL) Alert: Distinct 15-pulse gentle warning (~16.5-second duration)
    */
-  playUrgentLowAlert() {
+  playUrgentLowAlert(repeats = 15) {
     this.init();
     if (this.isMuted) return;
 
     const t = this.ctx.currentTime;
-    for (let i = 0; i < 3; i++) {
+    const repeatCount = Math.max(1, parseInt(repeats, 10) || 15);
+
+    for (let i = 0; i < repeatCount; i++) {
       const p = t + i * 1.1;
       this._playGentleSine(392.00, p, 0.8, 0.38, 0.05);
       this._playGentleSine(261.63, p + 0.22, 1.0, 0.42, 0.05);
     }
 
     if (this.speechEnabled) {
-      setTimeout(() => this.speak('Urgent low blood glucose. Life safety overrides fasting.'), 3500);
+      const msg = 'Urgent low blood glucose. Life safety overrides fasting.';
+      setTimeout(() => this.speak(msg), 600);
+      if (repeatCount >= 10) {
+        setTimeout(() => {
+          if (this.speechEnabled && !this.isMuted) {
+            this.speak(msg);
+          }
+        }, 8500);
+      }
     }
   }
 
   /**
-   * Text to speech announcement helper
+   * Text to speech announcement helper with robust browser compatibility
    */
   speak(text) {
-    if (!('speechSynthesis' in window) || !this.speechEnabled) return;
+    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !this.speechEnabled || !text) return;
     try {
-      window.speechSynthesis.cancel();
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.90;
-      utterance.pitch = 0.95;
-      utterance.volume = this.masterVolume;
+      utterance.rate = 0.92;
+      utterance.pitch = 1.0;
+      utterance.volume = Math.max(0.1, this.masterVolume);
+      utterance.lang = 'en-US';
+
+      // Pick clean natural English voice if available
+      if (this.voices && this.voices.length > 0) {
+        const enVoice = this.voices.find(v => (v.lang === 'en-US' || v.lang.startsWith('en')) && !v.name.toLowerCase().includes('whisper')) || this.voices[0];
+        if (enVoice) {
+          utterance.voice = enVoice;
+        }
+      }
+
+      // Retain utterance reference to protect from Chromium garbage collection bug
+      this._activeUtterances.push(utterance);
+      utterance.onend = () => {
+        this._activeUtterances = this._activeUtterances.filter(u => u !== utterance);
+      };
+      utterance.onerror = (e) => {
+        this._activeUtterances = this._activeUtterances.filter(u => u !== utterance);
+        if (e.error !== 'interrupted' && e.error !== 'canceled') {
+          console.warn('Speech synthesis utterance notice:', e);
+        }
+      };
+
       window.speechSynthesis.speak(utterance);
+
+      // Keep synthesis from sleeping in Chrome
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
     } catch (e) {
       console.warn('Speech synthesis error:', e);
     }

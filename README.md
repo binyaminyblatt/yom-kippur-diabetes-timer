@@ -45,9 +45,10 @@ Operating phones, clicking buttons, or touching electronics is prohibited on Yom
 - **Automatic Audio Silencing**: Alarms and chimes automatically fade out after 3 to 5 seconds. You never need to touch the computer to silence an alarm.
 
 ### 4. 🕯️ Motzei Yom Kippur (Fast End) Countdown Clock
-- **Halachic Zmanim Calculation**: Built with `kosher-zmanim` to compute local Sunset (*Shekiya*), Dusk (*Tzeit Hakochavim*), and Motzei Yom Kippur fast conclusion times based on geographic coordinates.
-- **Rabbinic Chumra Offsets**: Supports custom extra time additions (+0m, +18m, +30m, +72m Rabbeinu Tam).
-- **Live Header Countdown**: Displays exactly how many hours, minutes, and seconds remain until the fast concludes.
+- **Halachic Zmanim Calculation**: Built with `kosher-zmanim` to compute local Sunset (*Shekiya*), Dusk (*Tzeit Hakochavim*), and Motzei Yom Kippur fast conclusion times across the full Hebrew calendar (Erev Yom Kippur candle lighting through Motzei Yom Kippur fast end).
+- **Synagogue Calendar Verification**: Includes halachic reminders to verify calculated zmanim against the official calendar provided by your local synagogue or community rabbi.
+- **Rabbinic Chumra Offsets**: Supports custom extra time additions (+0m, +18m, +30m, +72m Rabbeinu Tam) and manual date/time override.
+- **Live Multi-Phase Countdown**: Displays dynamic status for *Yom Kippur Night*, *Yom Kippur Day*, *Upcoming Fast*, and *Fast Concluded*.
 
 ### 5. 🛡️ Cat-Proof & Accidental Touch Lock Shield
 - **Complete Keyboard Capture**: Global capture-phase listeners intercept and swallow all physical keystrokes (Spacebar, S, function keys, numbers, and random key mashing from a cat walking across the keyboard).
@@ -159,7 +160,7 @@ Built executables and installers will be saved to the `dist/` directory.
 
 Before Yom Kippur begins:
 1. **Launch the App**: Open the application and press the **Fullscreen** button (or start via Electron).
-2. **Configure Intervals**: Click **Settings** (⚙️) and set your rabbinically/medically prescribed eating interval ($T$) and Fast End time.
+2. **Configure Intervals**: Click **Settings** (⚙️) and set your rabbinically/medically prescribed eating interval ($T$) and verify your Fast End time against your local synagogue calendar.
 3. **Connect CGM**: If wearing a FreeStyle Libre sensor, toggle **Enable LibreLinkUp**, uncheck Demo Mode, and enter your LibreLinkUp account credentials.
 4. **Test Audio**: Click **Test Track A**, **Test Track B**, and **Test Glucose Alert** to confirm volume and sound profile.
 5. **Start Timer**: Click **Start Timer**.

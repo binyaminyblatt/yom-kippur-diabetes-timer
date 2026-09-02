@@ -87,6 +87,9 @@ class LibreService {
   }
 
   formatGlucose(mgdl) {
+    if (mgdl === null || mgdl === undefined || isNaN(mgdl)) {
+      return { value: '--', unit: this.unit === 'mmol' ? 'mmol/L' : 'mg/dL' };
+    }
     if (this.unit === 'mmol') {
       const mmol = (mgdl / 18.0182).toFixed(1);
       return { value: mmol, unit: 'mmol/L' };
@@ -176,6 +179,7 @@ class LibreService {
       }
 
       this.token = data.token;
+      this.userId = data.userId;
       this.accountId = data.accountId;
       this.baseUrl = data.baseUrl;
       this.patientId = data.patientId;
@@ -195,8 +199,12 @@ class LibreService {
     }
   }
 
-  async fetchLiveReadings() {
+  async fetchLiveReadings(isRetry = false) {
+    if (!this.token && this.email && this.password) {
+      await this.login();
+    }
     if (!this.token || !this.patientId) return;
+
     try {
       const resp = await fetch('/api/libre/readings', {
         method: 'POST',
@@ -206,14 +214,56 @@ class LibreService {
           accountId: this.accountId,
           baseUrl: this.baseUrl,
           patientId: this.patientId,
-          region: this.region
+          region: this.region,
+          email: this.email,
+          password: this.password,
+          userId: this.userId
         })
       });
       const res = await resp.json();
+
+      // If backend auto-renewed token
+      if (res.newToken) this.token = res.newToken;
+      if (res.newAccountId) this.accountId = res.newAccountId;
+      if (res.newBaseUrl) this.baseUrl = res.newBaseUrl;
+      if (res.newPatientId) this.patientId = res.newPatientId;
+
       if (!res.success) {
+        // If auth failed and we haven't retried yet, try relogin once
+        if (!isRetry && this.email && this.password) {
+          const relogged = await this.login();
+          if (relogged) {
+            return await this.fetchLiveReadings(true);
+          }
+        }
         const errorMsg = res.error || 'Failed to fetch readings';
         const fullMsg = res.suggestion ? `${errorMsg} (${res.suggestion})` : errorMsg;
         throw new Error(fullMsg);
+      }
+
+      if (res.isSensorWarmingUp) {
+        this.onStatusChange({
+          isConnected: true,
+          isDemo: false,
+          name: this.patientName,
+          statusText: 'Sensor Warming Up...'
+        });
+        this.onReading({
+          glucose: null,
+          isSensorWarmingUp: true,
+          trendArrow: 3,
+          timestamp: res.timestamp || new Date().toISOString(),
+          targetLow: this.targetLow || res.targetLow,
+          targetHigh: this.targetHigh || res.targetHigh,
+          urgentLow: this.urgentLow || res.urgentLow,
+          isHigh: false,
+          isLow: false,
+          isUrgentLow: false,
+          history: res.history || [],
+          warning: res.warning || 'Sensor is warming up / syncing',
+          isDemo: false
+        });
+        return;
       }
 
       this.onReading({
@@ -223,14 +273,22 @@ class LibreService {
         targetLow: this.targetLow || res.targetLow,
         targetHigh: this.targetHigh || res.targetHigh,
         urgentLow: this.urgentLow || res.urgentLow,
-        isHigh: res.glucose > this.targetHigh,
-        isLow: res.glucose < this.targetLow,
-        isUrgentLow: res.glucose < this.urgentLow,
+        isHigh: res.glucose !== null && res.glucose > this.targetHigh,
+        isLow: res.glucose !== null && res.glucose < this.targetLow,
+        isUrgentLow: res.glucose !== null && res.glucose < this.urgentLow,
         history: res.history || [],
         isDemo: false
       });
     } catch (err) {
       console.warn('Error fetching live readings:', err);
+      if (!isRetry && this.email && this.password) {
+        try {
+          const relogged = await this.login();
+          if (relogged) {
+            return await this.fetchLiveReadings(true);
+          }
+        } catch (e) {}
+      }
       this.onError(`Failed to update CGM: ${err.message}`);
     }
   }

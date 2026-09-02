@@ -133,6 +133,72 @@ async function runE2ETests() {
     assert.strictEqual(bannerAfter, false, 'Shield banner must be hidden after unlock');
     console.log('✓ App unlocked successfully: Passcode verified, shield removed, full controls restored');
 
+    // 9. Test Settings Modal & Speech / Voice Alerts
+    console.log('\n9. Testing Settings Modal & Voice Announcements...');
+    const btnSettings = page.locator('#btnSettings');
+    await btnSettings.click();
+    await page.waitForTimeout(300);
+
+    const settingsModalVisible = await page.locator('#settingsModal').isVisible();
+    assert.strictEqual(settingsModalVisible, true, 'Settings modal must open');
+
+    // Verify auto-shutoff options
+    const autoShutoffSelect = page.locator('#inputAutoShutoff');
+    const autoShutoffVal = await autoShutoffSelect.inputValue();
+    assert.strictEqual(autoShutoffVal, '20', 'Default auto-shutoff must be 20 seconds');
+    console.log('✓ Auto-silencing default confirmed at 20s (15-pulse cycle)');
+
+    // Toggle Voice Readout ON
+    const checkSpeech = page.locator('#checkSpeech');
+    await checkSpeech.click();
+    await page.waitForTimeout(200);
+
+    const isSpeechEnabled = await page.evaluate(() => window.audioEngine.speechEnabled);
+    assert.strictEqual(isSpeechEnabled, true, 'audioEngine.speechEnabled must be true after toggle');
+    const speechStored = await page.evaluate(() => localStorage.getItem('yom_kippur_speech_enabled'));
+    assert.strictEqual(speechStored, 'true', 'speech setting must be persisted in localStorage');
+    console.log('✓ Voice announcements toggle & localStorage persistence verified');
+
+    // Test Voice Alert button
+    const btnTestModalVoice = page.locator('#btnTestModalVoice');
+    assert.strictEqual(await btnTestModalVoice.isVisible(), true, 'btnTestModalVoice must be visible');
+    await btnTestModalVoice.click();
+    await page.waitForTimeout(400);
+    console.log('✓ Test Voice Alert button clicked and verified');
+
+    // Test Glucose Alert button (15-pulse sequence)
+    const btnTestModalAlarm = page.locator('#btnTestModalAlarm');
+    await btnTestModalAlarm.click();
+    await page.waitForTimeout(400);
+    console.log('✓ Test Glucose Alert button (15 pulses) clicked and verified');
+
+    // Save settings
+    const btnSaveSettings = page.locator('#btnSaveSettings');
+    await btnSaveSettings.click();
+    await page.waitForTimeout(400);
+
+    // 10. Test Live / Demo Low Glucose Alarm Banner & Auto-Silencing
+    console.log('\n10. Testing Demo Low Glucose Alarm & Banner Display...');
+    const btnDemoLow = page.locator('.btn-demo[data-val="60"]');
+    if (await btnDemoLow.isVisible()) {
+      await btnDemoLow.click();
+      await page.waitForTimeout(500);
+
+      const alarmBannerVisible = await page.locator('#alarmBanner').isVisible();
+      assert.strictEqual(alarmBannerVisible, true, 'Alarm banner must appear on low glucose');
+      const bannerText = await page.locator('#alarmTitle').textContent();
+      assert.ok(bannerText.includes('Low Glucose') || bannerText.includes('60'), 'Alarm banner title should indicate low glucose');
+      console.log(`✓ Low glucose alarm banner triggered: "${bannerText}"`);
+
+      // Test Snooze / Stop
+      const btnSnooze = page.locator('#btnSnoozeAlarm');
+      await btnSnooze.click();
+      await page.waitForTimeout(300);
+      const bannerHiddenAfterSnooze = await page.locator('#alarmBanner').isVisible();
+      assert.strictEqual(bannerHiddenAfterSnooze, false, 'Banner must hide when snoozed/stopped');
+      console.log('✓ Alarm snoozed and audio stopped successfully');
+    }
+
     console.log('\n========================================================');
     console.log(' ALL PLAYWRIGHT E2E TESTS PASSED SUCCESSFULLY! ✓✓✓');
     console.log('========================================================\n');

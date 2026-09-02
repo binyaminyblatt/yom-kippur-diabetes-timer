@@ -142,15 +142,23 @@
   <!-- Yom Kippur Fast End (Motzei Yom Kippur) Status Bar -->
   <div class="fast-end-bar">
     <div class="fast-end-col">
-      <span class="fast-end-label">🕯️ FAST ENDS (MOTZEI YOM KIPPUR)</span>
+      <div class="fast-end-label-row">
+        <span class="fast-end-label">🕯️ FAST CONCLUSION (MOTZEI YOM KIPPUR)</span>
+        <span id="fastStatusBadge" class="fast-status-chip badge-upcoming">Yom Kippur</span>
+      </div>
       <div class="fast-end-time-display">
         <strong id="displayFastEndTime">--:--</strong>
+        <span id="displayFastEndDate" class="fast-end-date-text"></span>
         <span id="displayFastEndLocation" class="fast-end-subtext">📍 Detecting location...</span>
+      </div>
+      <div class="fast-end-synagogue-note">
+        <span class="synagogue-note-icon">🕍</span> Please verify against the calendar provided by your local synagogue
       </div>
     </div>
     <div class="fast-end-col">
       <span class="fast-end-label">⏳ TIME REMAINING</span>
       <div id="displayFastEndRemaining" class="fast-end-remaining-time">--h --m --s</div>
+      <span id="displayFastStartNote" class="fast-start-note"></span>
     </div>
     <div class="fast-end-col">
       <span class="fast-end-label">🍽️ SHIURIM PACING</span>
@@ -463,22 +471,47 @@
           </div>
         </div>
 
-        <!-- Section: Yom Kippur Fast End Time -->
+        <!-- Section: Yom Kippur Fast Schedule -->
         <div class="settings-section">
-            <h3 class="section-title">🕯️ Yom Kippur Fast End (Motzei Yom Kippur)</h3>
-            <div class="form-row-grid">
-              <div class="form-group">
-                <label for="inputFastEndTime">Fast End Time (24h HH:MM):</label>
-                <input type="time" id="inputFastEndTime" value="19:45" class="form-input">
-              </div>
-              <div class="form-group">
-                <label for="inputFastEndDate">Fast End Date:</label>
-                <input type="date" id="inputFastEndDate" class="form-input">
-              </div>
-            </div>
-            <p class="form-hint">Set to your local Tzeit Hakochavim / Havdalah time according to your rabbinic calendar
-              or local Zmanim.</p>
+          <h3 class="section-title">🕯️ Yom Kippur Fast Schedule &amp; Zmanim</h3>
+
+          <div class="form-group">
+            <label for="selectFastScheduleMode">Schedule Calculation Mode:</label>
+            <select id="selectFastScheduleMode" class="form-select">
+              <option value="auto" selected>✨ Auto-Calculate Yom Kippur Zmanim (Halachic Calendar)</option>
+              <option value="manual">⚙️ Custom / Manual Fast Dates &amp; Times</option>
+            </select>
           </div>
+
+          <div id="autoZmanimSummary" class="zmanim-summary-box">
+            <div class="zmanim-summary-header">
+              <span id="zmanimHebrewYear" class="zmanim-hebrew-title">Yom Kippur</span>
+              <span id="zmanimScheduleBadge" class="badge-tag green">Auto-Resolved</span>
+            </div>
+            <div class="zmanim-grid-info">
+              <div><strong>Fast Starts (Erev YK):</strong> <span id="summaryFastStart">--:--</span></div>
+              <div><strong>Fast Ends (Motzei YK):</strong> <span id="summaryFastEnd">--:--</span></div>
+            </div>
+            <small class="form-hint">Automatically resolves Candle Lighting / Sunset on 9 Tishrei through Motzei Yom Kippur (10 Tishrei nightfall + extra time).</small>
+          </div>
+
+          <div id="manualFastFields" class="form-row-grid hidden">
+            <div class="form-group">
+              <label for="inputFastEndDate">Fast End Date:</label>
+              <input type="date" id="inputFastEndDate" class="form-input">
+            </div>
+            <div class="form-group">
+              <label for="inputFastEndTime">Fast End Time (24h HH:MM):</label>
+              <input type="time" id="inputFastEndTime" value="19:45" class="form-input">
+            </div>
+          </div>
+          <div class="synagogue-notice">
+            <span class="synagogue-notice-icon">🕍</span>
+            <div class="synagogue-notice-text">
+              <strong>Halachic Guidance:</strong> Zmanim calculations should always be checked and verified against the local calendar provided by your local synagogue or community rabbi.
+            </div>
+          </div>
+        </div>
 
           <!-- Section: Audio & Alarms -->
           <div class="settings-section">
@@ -506,10 +539,12 @@
               <div class="form-group">
                 <label for="inputAutoShutoff">Alarm Auto-Silencing:</label>
                 <select id="inputAutoShutoff" class="form-select">
-                  <option value="3">3 seconds (Short)</option>
-                  <option value="5" selected>5 seconds (Standard)</option>
-                  <option value="8">8 seconds</option>
-                  <option value="12">12 seconds</option>
+                  <option value="5">5 seconds (Quick)</option>
+                  <option value="10">10 seconds (Short)</option>
+                  <option value="15">15 seconds</option>
+                  <option value="20" selected>20 seconds (Standard 15-Pulse Cycle)</option>
+                  <option value="30">30 seconds (Extended)</option>
+                  <option value="60">60 seconds (1 Minute)</option>
                 </select>
                 <small class="form-hint">Automatically stops so no one touches the device on Yom Kippur.</small>
               </div>
@@ -527,6 +562,7 @@
               <button id="btnTestModalA" class="btn-secondary">Test Track A</button>
               <button id="btnTestModalB" class="btn-secondary">Test Track B</button>
               <button id="btnTestModalAlarm" class="btn-secondary">Test Glucose Alert</button>
+              <button id="btnTestModalVoice" class="btn-secondary">🗣️ Test Voice Alert</button>
             </div>
           </div>
 
@@ -696,7 +732,7 @@
               <div class="step-num">2</div>
               <div class="step-content">
                 <div class="step-title">⏱️ Set Eating Interval &amp; Fast End Time</div>
-                <div class="step-desc">Configure your rabbinic/medical interval (9m, 8m, 6m, 4m) and local Motzei Yom Kippur time in <strong>Settings</strong> (⚙️).</div>
+                <div class="step-desc">Configure your rabbinic/medical interval (9m, 8m, 6m, 4m) and verify your local Motzei Yom Kippur time in <strong>Settings</strong> (⚙️) against the calendar provided by your local synagogue.</div>
               </div>
             </div>
 

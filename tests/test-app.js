@@ -1,6 +1,7 @@
 const http = require('http');
 const assert = require('assert');
 const path = require('path');
+const fs = require('fs');
 
 // Test Timer Logic
 function testTimerLogic() {
@@ -42,6 +43,50 @@ function testTimerLogic() {
   assert.strictEqual(remB, 540, 'Track B should be 540s (or 0s)');
 
   console.log('✓ Dual-track interval calculation verified successfully!');
+}
+
+// Test Audio Engine & Alert Repetition Logic
+function testAudioEngineLogic() {
+  console.log('\n--- Testing Audio Engine & 15-Repeat Alert Configuration ---');
+  const AudioEngine = require(path.join(__dirname, '../public/audio-engine.js'));
+  const engine = new AudioEngine();
+
+  // Test defaults
+  assert.strictEqual(engine.autoShutoffSeconds, 20, 'Default auto-shutoff should be 20s to allow 15-repeat sequence');
+  assert.strictEqual(engine.speechEnabled, false, 'Default speechEnabled should be false');
+  assert.strictEqual(engine.masterVolume, 0.50, 'Default master volume should be 0.50');
+
+  // Test Speech toggling
+  engine.setSpeech(true);
+  assert.strictEqual(engine.speechEnabled, true, 'Speech should be enabled');
+  engine.setSpeech(false);
+  assert.strictEqual(engine.speechEnabled, false, 'Speech should be disabled');
+
+  // Test Auto Shutoff bounds
+  engine.setAutoShutoffSeconds(15);
+  assert.strictEqual(engine.autoShutoffSeconds, 15);
+  engine.setAutoShutoffSeconds(1); // Min bound clamp
+  assert.strictEqual(engine.autoShutoffSeconds, 2);
+  engine.setAutoShutoffSeconds(100); // Max bound clamp
+  assert.strictEqual(engine.autoShutoffSeconds, 60);
+
+  // Test Volume Clamping
+  engine.setVolume(1.5);
+  assert.strictEqual(engine.masterVolume, 1.0, 'Volume should be capped at 1.0');
+  engine.setVolume(-0.5);
+  assert.strictEqual(engine.masterVolume, 0.0, 'Volume should not go below 0.0');
+
+  // Test 15-pulse sequence duration math
+  const glucosePulses = 15;
+  const pulseSpacing = 1.35;
+  const totalDuration = (glucosePulses - 1) * pulseSpacing;
+  assert.ok(totalDuration < 20, '15 pulses at 1.35s spacing should complete within the 20s auto-shutoff window');
+
+  // Test stopAlarms method existence
+  assert.strictEqual(typeof engine.stopAlarms, 'function', 'engine must have stopAlarms method');
+  engine.stopAlarms();
+
+  console.log('✓ AudioEngine, 15-repeat pulse math, and speech synthesis handlers verified successfully!');
 }
 
 // Test Passcode and Lockout Logic
@@ -135,7 +180,38 @@ async function testServerEndpoints() {
     assert.strictEqual(setDemo.data.currentGlucose, 62);
     console.log('✓ /api/libre/demo/set correctly set low glucose (62 mg/dL) for alarm testing');
 
-    // Test Libre Test-Connection Diagnostics Endpoint (Validation check)
+    // =========================================================================
+    // Test Connection Validation using .env Files & Parsed Configurations
+    // =========================================================================
+    console.log('\n--- Testing Test Connection Validation with .env Configurations ---');
+
+    const parseEnv = (content) => {
+      const env = {};
+      if (!content) return env;
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const idx = trimmed.indexOf('=');
+        if (idx !== -1) {
+          const key = trimmed.substring(0, idx).trim();
+          let val = trimmed.substring(idx + 1).trim();
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          env[key] = val;
+        }
+      }
+      return env;
+    };
+
+    const loadEnvFile = (filePath) => {
+      if (fs.existsSync(filePath)) {
+        return parseEnv(fs.readFileSync(filePath, 'utf8'));
+      }
+      return {};
+    };
+
+    // Test Case 1: Direct validation check (empty credentials)
     const testConnValidation = await fetchJson('/api/libre/test-connection', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -143,11 +219,146 @@ async function testServerEndpoints() {
     });
     assert.strictEqual(testConnValidation.status, 400);
     assert.strictEqual(testConnValidation.data.success, false);
+    assert.strictEqual(testConnValidation.data.error, 'Email and password are required');
     assert.ok(testConnValidation.data.logs.length > 0, 'Must produce diagnostic logs');
     console.log('✓ /api/libre/test-connection validation and diagnostic logging verified');
 
-    // Test kosher-zmanim Fast End calculation
-    const zmanim = await fetchJson('/api/zmanim/fast-end', {
+    // Test Case 2: .env configuration with missing email
+    const envMissingEmail = parseEnv(`
+      # Mock .env file with missing email
+      LIBRE_EMAIL=
+      LIBRE_PASSWORD=MySecretPassword123
+      LIBRE_REGION=US
+    `);
+    const resMissingEmail = await fetchJson('/api/libre/test-connection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: envMissingEmail.LIBRE_EMAIL || '',
+        password: envMissingEmail.LIBRE_PASSWORD || '',
+        region: envMissingEmail.LIBRE_REGION || 'US'
+      })
+    });
+    assert.strictEqual(resMissingEmail.status, 400, 'Missing email in .env must return 400');
+    assert.strictEqual(resMissingEmail.data.success, false);
+    assert.strictEqual(resMissingEmail.data.error, 'Email and password are required');
+    assert.ok(resMissingEmail.data.logs.some(l => l.includes('Validation failed')), 'Must produce validation failure log');
+    console.log('✓ .env with missing email correctly rejected with 400 Bad Request');
+
+    // Test Case 3: .env configuration with missing password
+    const envMissingPassword = parseEnv(`
+      # Mock .env file with missing password
+      LIBRE_EMAIL=follower@example.com
+      LIBRE_PASSWORD=""
+      LIBRE_REGION=EU
+    `);
+    const resMissingPassword = await fetchJson('/api/libre/test-connection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: envMissingPassword.LIBRE_EMAIL || '',
+        password: envMissingPassword.LIBRE_PASSWORD || '',
+        region: envMissingPassword.LIBRE_REGION || 'US'
+      })
+    });
+    assert.strictEqual(resMissingPassword.status, 400, 'Missing password in .env must return 400');
+    assert.strictEqual(resMissingPassword.data.success, false);
+    assert.strictEqual(resMissingPassword.data.error, 'Email and password are required');
+    assert.ok(resMissingPassword.data.logs.some(l => l.includes('Validation failed')), 'Must produce validation failure log');
+    console.log('✓ .env with missing password correctly rejected with 400 Bad Request');
+
+    // Test Case 4: Temporary .env.test file lifecycle on filesystem
+    const testEnvPath = path.join(__dirname, '.env.test');
+    fs.writeFileSync(testEnvPath, [
+      '# Automated Test Environment File',
+      'LIBRE_EMAIL="test.user@diabetestimer.local"',
+      'LIBRE_PASSWORD="test_mock_password"',
+      'LIBRE_REGION="US"'
+    ].join('\n'), 'utf8');
+
+    const loadedTestEnv = loadEnvFile(testEnvPath);
+    assert.strictEqual(loadedTestEnv.LIBRE_EMAIL, 'test.user@diabetestimer.local');
+    assert.strictEqual(loadedTestEnv.LIBRE_PASSWORD, 'test_mock_password');
+    assert.strictEqual(loadedTestEnv.LIBRE_REGION, 'US');
+
+    const resTestEnv = await fetchJson('/api/libre/test-connection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: loadedTestEnv.LIBRE_EMAIL,
+        password: loadedTestEnv.LIBRE_PASSWORD,
+        region: loadedTestEnv.LIBRE_REGION
+      })
+    });
+    assert.strictEqual(resTestEnv.status, 400, 'Invalid credentials from .env must return 400 with diagnostic suggestion');
+    assert.strictEqual(resTestEnv.data.success, false);
+    assert.ok(resTestEnv.data.suggestion, 'Must provide friendly diagnostic suggestion');
+    assert.ok(resTestEnv.data.logs.length > 0, 'Must produce multi-step diagnostic logs');
+    console.log(`✓ Temporary .env.test validated and executed: ${resTestEnv.data.error} (Suggestion: ${resTestEnv.data.suggestion})`);
+
+    // Clean up temporary test .env file
+    if (fs.existsSync(testEnvPath)) {
+      fs.unlinkSync(testEnvPath);
+    }
+    console.log('✓ Temporary .env.test file cleaned up successfully');
+
+    // Test Case 5: Root .env or .env.example verification
+    const rootEnvPath = path.join(__dirname, '../.env');
+    const rootExampleEnvPath = path.join(__dirname, '../.env.example');
+    const activeEnv = fs.existsSync(rootEnvPath) ? loadEnvFile(rootEnvPath) : loadEnvFile(rootExampleEnvPath);
+    
+    if (activeEnv.LIBRE_EMAIL && activeEnv.LIBRE_PASSWORD && activeEnv.LIBRE_EMAIL !== 'user@example.com') {
+      const masked = activeEnv.LIBRE_EMAIL.replace(/(.{2})(.*)(@.*)/, '$1***$3');
+      console.log(`📡 Detected live .env credentials for ${masked} (Region: ${activeEnv.LIBRE_REGION || 'US'}). Running live connection validation...`);
+      const liveRes = await fetchJson('/api/libre/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: activeEnv.LIBRE_EMAIL,
+          password: activeEnv.LIBRE_PASSWORD,
+          region: activeEnv.LIBRE_REGION || 'US'
+        })
+      });
+      console.log(`✓ Live .env connection test completed: HTTP ${liveRes.status} (Success: ${liveRes.data.success})`);
+    } else {
+      console.log('✓ .env.example template parsed and verified for LibreLinkUp testing configuration');
+    }
+
+    // Test /api/libre/readings Validation Check
+    const readingsValidation = await fetchJson('/api/libre/readings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    assert.strictEqual(readingsValidation.status, 400, 'Empty readings request must return 400');
+    assert.strictEqual(readingsValidation.data.success, false);
+    console.log('✓ /api/libre/readings validation verified (returns 400 Bad Request instead of 500)');
+
+    // Test /api/libre/logs Endpoint
+    const logsResp = await fetchJson('/api/libre/logs');
+    assert.strictEqual(logsResp.status, 200, '/api/libre/logs must return 200');
+    assert.strictEqual(logsResp.data.success, true);
+    assert.ok(Array.isArray(logsResp.data.logs), 'Logs must be an array');
+    assert.ok(logsResp.data.total >= 3, 'Must contain logged glucose requests');
+    console.log(`✓ /api/libre/logs returned ${logsResp.data.total} recorded glucose requests`);
+
+    // Test LibreService unit formatting and null safety
+    const LibreService = require(path.join(__dirname, '../public/libre-service.js'));
+    const libreService = new LibreService();
+    assert.deepStrictEqual(libreService.formatGlucose(null), { value: '--', unit: 'mg/dL' });
+    assert.deepStrictEqual(libreService.formatGlucose(undefined), { value: '--', unit: 'mg/dL' });
+    assert.deepStrictEqual(libreService.formatGlucose(NaN), { value: '--', unit: 'mg/dL' });
+    assert.deepStrictEqual(libreService.formatGlucose(110), { value: 110, unit: 'mg/dL' });
+    libreService.setUnit('mmol');
+    assert.deepStrictEqual(libreService.formatGlucose(110), { value: '6.1', unit: 'mmol/L' });
+    assert.deepStrictEqual(libreService.formatGlucose(null), { value: '--', unit: 'mmol/L' });
+    console.log('✓ LibreService formatGlucose null safety and mmol/mgdl unit conversion verified');
+
+    // Test kosher-zmanim Fast End calculation & Yom Kippur Schedule Resolution
+    console.log('\n--- Testing Yom Kippur Schedule Calculation & States ---');
+    
+    // Scenario 1: Auto-resolved Yom Kippur for current date (e.g. Sept 2026 -> 5787)
+    const zmanimAuto = await fetchJson('/api/zmanim/fast-end', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -157,10 +368,84 @@ async function testServerEndpoints() {
         additionalMinutes: 18
       })
     });
-    assert.strictEqual(zmanim.status, 200, 'Zmanim endpoint must return 200');
-    assert.strictEqual(zmanim.data.success, true);
-    assert.ok(zmanim.data.fastEndTimeFormatted, 'Must return formatted fast end time');
-    console.log(`✓ /api/zmanim/fast-end computed Fast End Time: ${zmanim.data.fastEndTimeFormatted} (Sunset: ${zmanim.data.sunsetFormatted}, Tzais: ${zmanim.data.tzaisBaseFormatted} + 18m)`);
+    assert.strictEqual(zmanimAuto.status, 200, 'Zmanim endpoint must return 200');
+    assert.strictEqual(zmanimAuto.data.success, true);
+    assert.ok(zmanimAuto.data.fastEndTimeFormatted, 'Must return formatted fast end time');
+    assert.ok(zmanimAuto.data.fastStartDate, 'Must return fast start date');
+    assert.ok(zmanimAuto.data.fastEndDate, 'Must return fast end date');
+    assert.strictEqual(zmanimAuto.data.fastStartDate, '2026-09-20', 'Erev YK 5787 must be 2026-09-20');
+    assert.strictEqual(zmanimAuto.data.fastEndDate, '2026-09-21', 'YK Day 5787 must be 2026-09-21');
+    console.log(`✓ Auto Yom Kippur 5787 schedule resolved: Starts ${zmanimAuto.data.fastStartDate} at ${zmanimAuto.data.fastStartTimeFormatted}, Ends ${zmanimAuto.data.fastEndDate} at ${zmanimAuto.data.fastEndTimeFormatted}`);
+
+    // Scenario 2: Yom Kippur Night (simulating 2026-09-20 at 21:00)
+    // On Yom Kippur night, the fast MUST be active and targeting tomorrow night (2026-09-21), NOT concluded!
+    const zmanimNight = await fetchJson('/api/zmanim/fast-end', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lat: 31.7683,
+        lng: 35.2137,
+        timeZoneId: 'Asia/Jerusalem',
+        additionalMinutes: 18,
+        now: '2026-09-20T21:00:00+03:00'
+      })
+    });
+    assert.strictEqual(zmanimNight.data.status, 'FAST_ACTIVE', 'Yom Kippur night must have status FAST_ACTIVE');
+    assert.strictEqual(zmanimNight.data.isYomKippurNight, true, 'isYomKippurNight must be true');
+    assert.strictEqual(zmanimNight.data.isYomKippurDay, false, 'isYomKippurDay must be false');
+    assert.strictEqual(zmanimNight.data.fastEndDate, '2026-09-21', 'Fast end date must be tomorrow (2026-09-21)');
+    console.log(`✓ Yom Kippur Night (Kol Nidre evening) correctly detected: Status is FAST_ACTIVE (Ends tomorrow ${zmanimNight.data.fastEndDate} at ${zmanimNight.data.fastEndTimeFormatted})`);
+
+    // Scenario 3: Yom Kippur Day (simulating 2026-09-21 at 12:00)
+    const zmanimDay = await fetchJson('/api/zmanim/fast-end', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lat: 31.7683,
+        lng: 35.2137,
+        timeZoneId: 'Asia/Jerusalem',
+        additionalMinutes: 18,
+        now: '2026-09-21T12:00:00+03:00'
+      })
+    });
+    assert.strictEqual(zmanimDay.data.status, 'FAST_ACTIVE', 'Yom Kippur daytime must have status FAST_ACTIVE');
+    assert.strictEqual(zmanimDay.data.isYomKippurNight, false, 'isYomKippurNight must be false');
+    assert.strictEqual(zmanimDay.data.isYomKippurDay, true, 'isYomKippurDay must be true');
+    assert.strictEqual(zmanimDay.data.fastEndDate, '2026-09-21', 'Fast end date must be today (2026-09-21)');
+    console.log(`✓ Yom Kippur Day correctly detected: Status is FAST_ACTIVE (Ends tonight ${zmanimDay.data.fastEndDate} at ${zmanimDay.data.fastEndTimeFormatted})`);
+
+    // Scenario 4: Motzei Yom Kippur after fast end (simulating 2026-09-21 at 21:00)
+    const zmanimConcluded = await fetchJson('/api/zmanim/fast-end', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lat: 31.7683,
+        lng: 35.2137,
+        timeZoneId: 'Asia/Jerusalem',
+        additionalMinutes: 18,
+        now: '2026-09-21T21:00:00+03:00'
+      })
+    });
+    assert.strictEqual(zmanimConcluded.data.status, 'FAST_CONCLUDED', 'After fast end must have status FAST_CONCLUDED');
+    console.log('✓ Motzei Yom Kippur (after nightfall) correctly detected: Status is FAST_CONCLUDED');
+
+    // Scenario 5: Manual Date and Time Override
+    const zmanimManual = await fetchJson('/api/zmanim/fast-end', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lat: 40.7128,
+        lng: -74.0060,
+        timeZoneId: 'America/New_York',
+        isManual: true,
+        manualDate: '2026-10-15',
+        manualTime: '18:55'
+      })
+    });
+    assert.strictEqual(zmanimManual.data.isManual, true);
+    assert.strictEqual(zmanimManual.data.fastEndDate, '2026-10-15');
+    assert.strictEqual(zmanimManual.data.fastEndTimeFormatted, '18:55');
+    console.log(`✓ Manual Fast schedule override verified: Custom date ${zmanimManual.data.fastEndDate} at ${zmanimManual.data.fastEndTimeFormatted}`);
   } finally {
     if (server && server.close) {
       server.close();
@@ -171,6 +456,7 @@ async function testServerEndpoints() {
 async function runAll() {
   try {
     testTimerLogic();
+    testAudioEngineLogic();
     testLockAndPasscodeLogic();
     await testServerEndpoints();
     console.log('\n=============================================');

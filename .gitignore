@@ -2,3 +2,7 @@ node_modules
 /dist
 /.vscode
 /docs
+.env
+.env.local
+.env.*
+!.env.example
