@@ -2,6 +2,14 @@
 
 An automated, unattended **Eating Interval (*Achila l'Shiurim*) Timer and Continuous Glucose Monitor (CGM) Display** designed specifically for individuals with diabetes or medical needs who must consume measured portions on **Yom Kippur** (*Pikuach Nefesh*) without operating electronics during the fast.
 
+> [!WARNING]
+> ### ⚠️ Medical & Halachic Disclaimer
+> **Please consult with your doctor (physician) and your rabbi before using this application.**
+>
+> - **Medical Guidance**: Managing diabetes or any other medical condition on Yom Kippur involves serious health risks (*Pikuach Nefesh*). Always consult your medical provider for specific instructions on fasting, interval eating, hydration, glucose targets, and medication adjustments.
+> - **Halachic Guidance**: Required eating/drinking measurements (*Shiurim*) and interval timing must be established in advance with a qualified orthodox Rabbi.
+> - **No Liability**: This tool is provided strictly on an "as-is" basis for informational and convenience purposes. The author(s) and contributor(s) take **no responsibility or liability** for any problems, software malfunctions, inaccurate data, or health issues, complications, or medical emergencies that may arise from using this application. You use this software entirely at your own risk.
+
 ---
 
 ## 🌟 Overview & Purpose
@@ -161,5 +169,9 @@ Before Yom Kippur begins:
 
 ## 📜 License
 
-This project is open-source software licensed under the **MIT License**.
+This project is open-source software licensed under the [MIT License](LICENSE).
+
+### 🤝 Non-Binding Community Request
+If you or your organization are using this software for commercial purposes, it is respectfully requested (though strictly voluntary and non-binding) that you consider making a donation of $50 USD to an Orthodox Jewish charity (*Tzedakah*) of your choice.
+
 May everyone observing the fast have an easy and meaningful Yom Kippur, and may all those requiring medical sustenance be blessed with complete health and *Refuah Sheleima*.
