@@ -229,10 +229,6 @@ class AudioEngine {
         this._playSoftCabin(true, t);
         break;
     }
-
-    if (this.speechEnabled) {
-      setTimeout(() => this.speak('Track A'), 600);
-    }
   }
 
   /**
@@ -268,14 +264,11 @@ class AudioEngine {
         this._playSoftCabin(false, t);
         break;
     }
-
-    if (this.speechEnabled) {
-      setTimeout(() => this.speak('Track B'), 600);
-    }
   }
 
   /**
    * Glucose Alert: Gentle pulsing warm chime repeating 15 times (~20-second duration)
+   * Voice announcements ONLY speak here for glucose safety alerts.
    */
   playGlucoseAlert(isLow = true, repeats = 15) {
     this.init();
@@ -293,7 +286,10 @@ class AudioEngine {
     }
 
     if (this.speechEnabled) {
-      const msg = isLow ? 'Low glucose alert' : 'High glucose alert';
+      const isHe = typeof window !== 'undefined' && window.i18n && window.i18n.getCurrentLanguage() === 'he';
+      const msg = isHe 
+        ? (isLow ? 'התראת סוכר נמוך' : 'התראת סוכר גבוה') 
+        : (isLow ? 'Low glucose alert' : 'High glucose alert');
       // Announce clearly near start
       setTimeout(() => this.speak(msg), 700);
       // If 15 pulses, repeat voice announcement midway (~9.5s) for safety
@@ -324,7 +320,10 @@ class AudioEngine {
     }
 
     if (this.speechEnabled) {
-      const msg = 'Urgent low blood glucose. Life safety overrides fasting.';
+      const isHe = typeof window !== 'undefined' && window.i18n && window.i18n.getCurrentLanguage() === 'he';
+      const msg = isHe
+        ? 'התראת סוכר נמוך קריטי. פיקוח נפש דוחה תענית.'
+        : 'Urgent low blood glucose. Life safety overrides fasting.';
       setTimeout(() => this.speak(msg), 600);
       if (repeatCount >= 10) {
         setTimeout(() => {
@@ -339,24 +338,32 @@ class AudioEngine {
   /**
    * Text to speech announcement helper with robust browser compatibility
    */
-  speak(text) {
+  speak(text, lang = null) {
     if (typeof window === 'undefined' || !('speechSynthesis' in window) || !this.speechEnabled || !text) return;
     try {
       if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
       }
 
+      const activeLang = lang || (typeof window !== 'undefined' && window.i18n ? window.i18n.getCurrentLanguage() : 'en');
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 0.92;
       utterance.pitch = 1.0;
       utterance.volume = Math.max(0.1, this.masterVolume);
-      utterance.lang = 'en-US';
+      utterance.lang = activeLang === 'he' ? 'he-IL' : 'en-US';
 
-      // Pick clean natural English voice if available
+      // Pick matching voice if available
       if (this.voices && this.voices.length > 0) {
-        const enVoice = this.voices.find(v => (v.lang === 'en-US' || v.lang.startsWith('en')) && !v.name.toLowerCase().includes('whisper')) || this.voices[0];
-        if (enVoice) {
-          utterance.voice = enVoice;
+        if (activeLang === 'he') {
+          const heVoice = this.voices.find(v => v.lang.startsWith('he') || v.lang.startsWith('iw'));
+          if (heVoice) {
+            utterance.voice = heVoice;
+          }
+        } else {
+          const enVoice = this.voices.find(v => (v.lang === 'en-US' || v.lang.startsWith('en')) && !v.name.toLowerCase().includes('whisper')) || this.voices[0];
+          if (enVoice) {
+            utterance.voice = enVoice;
+          }
         }
       }
 

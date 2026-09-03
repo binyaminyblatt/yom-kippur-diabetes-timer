@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 
 const app = express();
@@ -125,6 +126,48 @@ function logGlucoseActivity(endpoint, type, details, meta = null) {
   console.log(`[CGM Activity] ${time} ${icon} [${endpoint}] ${details}`);
 }
 
+// Endpoint: Discover all available locale language files in public/locales
+app.get('/api/languages', (req, res) => {
+  try {
+    const localesDir = path.join(__dirname, 'public', 'locales');
+    if (!fs.existsSync(localesDir)) {
+      return res.json({ success: true, languages: [{ code: 'en', name: 'English', dir: 'ltr', flag: '🇺🇸' }] });
+    }
+    const files = fs.readdirSync(localesDir);
+    const languages = [];
+
+    for (const file of files) {
+      if (file.endsWith('.json') && file !== 'template.json') {
+        const langCode = path.basename(file, '.json');
+        try {
+          const content = JSON.parse(fs.readFileSync(path.join(localesDir, file), 'utf8'));
+          const meta = content._meta || {};
+          const name = meta.languageName || (langCode === 'en' ? 'English' : (langCode === 'he' ? 'עברית (Hebrew)' : langCode.toUpperCase()));
+          const dir = meta.direction || (['he', 'iw', 'ar', 'yi', 'fa', 'ur'].includes(langCode.toLowerCase()) ? 'rtl' : 'ltr');
+          const flag = meta.flag || (langCode === 'en' ? '🇺🇸' : (langCode === 'he' ? '🇮🇱' : '🌐'));
+          languages.push({ code: langCode, name, dir, flag });
+        } catch (e) {
+          languages.push({ code: langCode, name: langCode.toUpperCase(), dir: 'ltr', flag: '🌐' });
+        }
+      }
+    }
+
+    // Always sort with English first, then Hebrew, then other languages
+    languages.sort((a, b) => {
+      if (a.code === 'en') return -1;
+      if (b.code === 'en') return 1;
+      if (a.code === 'he') return -1;
+      if (b.code === 'he') return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    res.json({ success: true, languages });
+  } catch (err) {
+    console.error('Error discovering languages:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Endpoint: Fetch all recent glucose request logs
 app.get('/api/libre/logs', (req, res) => {
   res.json({
@@ -172,71 +215,106 @@ app.post('/api/libre/demo/set', (req, res) => {
   res.json({ success: true, currentGlucose: demoState.currentGlucose });
 });
 
-// Helper: Diagnose LibreLinkUp authentication & connection problems
-function diagnoseLibreProblem(err, rawData = null, region = 'US') {
+// Server-side i18n helper that dynamically reads locale files from public/locales/
+const serverLocales = {};
+function getServerText(key, lang = 'en', options = {}) {
+  const targetLang = (typeof lang === 'string' && lang.trim()) ? lang.trim().toLowerCase() : 'en';
+
+  const loadLocale = (l) => {
+    if (!serverLocales[l]) {
+      try {
+        const filePath = path.join(__dirname, 'public', 'locales', `${l}.json`);
+        if (fs.existsSync(filePath)) {
+          serverLocales[l] = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        }
+      } catch (e) {
+        console.warn(`[Server i18n] Failed to load ${l}.json:`, e.message);
+      }
+    }
+    return serverLocales[l];
+  };
+
+  const getFromDict = (dict, keyPath) => {
+    if (!dict) return null;
+    const keys = keyPath.split('.');
+    let val = dict;
+    for (const k of keys) {
+      if (val && typeof val === 'object' && k in val) {
+        val = val[k];
+      } else {
+        return null;
+      }
+    }
+    return (val !== undefined && val !== null) ? val : null;
+  };
+
+  const targetDict = loadLocale(targetLang);
+  let val = getFromDict(targetDict, key);
+
+  // Fallback to English if missing or undefined in target language
+  if (val === null || val === undefined) {
+    const enDict = loadLocale('en');
+    val = getFromDict(enDict, key);
+  }
+
+  if (typeof val === 'string') {
+    return val.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, p1) => {
+      return options[p1] !== undefined ? options[p1] : `{{${p1}}}`;
+    });
+  }
+
+  return (val !== null && val !== undefined) ? val : key;
+}
+
+// Helper: Extract requested language ('en' | 'he') from request
+function getReqLang(req) {
+  if (req?.body?.lang) return req.body.lang === 'he' ? 'he' : 'en';
+  if (req?.query?.lang) return req.query.lang === 'he' ? 'he' : 'en';
+  const acceptLang = req?.headers?.['accept-language'] || '';
+  if (acceptLang.startsWith('he') || acceptLang.startsWith('iw')) return 'he';
+  return 'en';
+}
+
+// Helper: Diagnose LibreLinkUp authentication & connection problems via external i18n locale files
+function diagnoseLibreProblem(err, rawData = null, region = 'US', lang = 'en') {
   const errMsg = (err?.message || (typeof err === 'string' ? err : '')).toLowerCase();
   const rawMsg = (rawData?.error?.message || rawData?.message || JSON.stringify(rawData || '')).toLowerCase();
   const fullText = `${errMsg} ${rawMsg}`;
 
+  let catKey = 'generalError';
+  let categoryCode = 'GENERAL_ERROR';
+
   if (fullText.includes('invalid credentials') || fullText.includes('status 2') || fullText.includes('unauthorized') || fullText.includes('401')) {
-    return {
-      category: 'INVALID_CREDENTIALS',
-      title: 'Invalid Email or Password',
-      friendlyMessage: 'Abbott rejected the email or password.',
-      suggestion: 'Please verify that your email and password work when logging into the official LibreLinkUp mobile app. If your LibreView account uses "Sign in with Apple" or Google on your phone, you must set a password on the LibreView website.'
-    };
+    catKey = 'invalidCredentials';
+    categoryCode = 'INVALID_CREDENTIALS';
+  } else if (fullText.includes('redirect') || fullText.includes('region')) {
+    catKey = 'regionMismatch';
+    categoryCode = 'REGION_MISMATCH';
+  } else if (fullText.includes('terms') || fullText.includes('tou') || fullText.includes('privacy') || fullText.includes('consent')) {
+    catKey = 'termsOfService';
+    categoryCode = 'TERMS_OF_SERVICE';
+  } else if (fullText.includes('no connections') || fullText.includes('patient id not found')) {
+    catKey = 'noPatient';
+    categoryCode = 'NO_PATIENT_CONNECTIONS';
+  } else if (fullText.includes('too many requests') || fullText.includes('429') || fullText.includes('rate limit')) {
+    catKey = 'rateLimited';
+    categoryCode = 'RATE_LIMITED';
+  } else if (fullText.includes('enotfound') || fullText.includes('etimedout') || fullText.includes('econnrefused') || fullText.includes('fetch failed')) {
+    catKey = 'networkTimeout';
+    categoryCode = 'NETWORK_TIMEOUT';
   }
 
-  if (fullText.includes('redirect') || fullText.includes('region')) {
-    return {
-      category: 'REGION_MISMATCH',
-      title: 'Region Server Mismatch',
-      friendlyMessage: `Your account belongs to a different regional server than "${region}".`,
-      suggestion: 'The client attempted automatic regional redirection. If issue persists, try changing the region in Settings (e.g. from US to EU or Global).'
-    };
-  }
-
-  if (fullText.includes('terms') || fullText.includes('tou') || fullText.includes('privacy') || fullText.includes('consent')) {
-    return {
-      category: 'TERMS_OF_SERVICE',
-      title: 'Terms of Service Acceptance Required',
-      friendlyMessage: 'Abbott requires you to accept updated Terms of Service or Privacy Policy.',
-      suggestion: 'Open the LibreLinkUp mobile app on your smartphone once to accept the updated terms, then re-test the connection here.'
-    };
-  }
-
-  if (fullText.includes('no connections') || fullText.includes('patient id not found')) {
-    return {
-      category: 'NO_PATIENT_CONNECTIONS',
-      title: 'No Shared Patient Connected',
-      friendlyMessage: 'Login succeeded, but no connected patient or active sensor was found.',
-      suggestion: 'In the LibreLinkUp mobile app, verify that you have accepted the sharing invitation from the sensor wearer.'
-    };
-  }
-
-  if (fullText.includes('too many requests') || fullText.includes('429') || fullText.includes('rate limit')) {
-    return {
-      category: 'RATE_LIMITED',
-      title: 'Temporary Rate Limiting',
-      friendlyMessage: 'Abbott servers are temporarily limiting requests due to rapid attempts.',
-      suggestion: 'Please wait 2 to 3 minutes before testing again.'
-    };
-  }
-
-  if (fullText.includes('enotfound') || fullText.includes('etimedout') || fullText.includes('econnrefused') || fullText.includes('fetch failed')) {
-    return {
-      category: 'NETWORK_TIMEOUT',
-      title: 'Network / Connection Timeout',
-      friendlyMessage: 'Could not connect to Abbott LibreLinkUp servers.',
-      suggestion: 'Please check your computer internet connection and verify that api-us.libreview.io or api-eu.libreview.io is accessible.'
-    };
-  }
+  const title = getServerText(`server.diagnostics.${catKey}Title`, lang);
+  const friendlyMessage = (catKey === 'generalError' && err?.message)
+    ? err.message
+    : getServerText(`server.diagnostics.${catKey}Msg`, lang, { region });
+  const suggestion = getServerText(`server.diagnostics.${catKey}Suggestion`, lang, { region });
 
   return {
-    category: 'GENERAL_ERROR',
-    title: 'Connection Error',
-    friendlyMessage: err?.message || 'Failed to communicate with LibreLinkUp.',
-    suggestion: 'Check your credentials and region settings or inspect the detailed connection log below.'
+    category: categoryCode,
+    title,
+    friendlyMessage,
+    suggestion
   };
 }
 
@@ -258,6 +336,7 @@ async function getLibreLinkClient() {
 // LibreLinkUp Test Connection & Diagnostics Endpoint
 // ============================================================================
 app.post('/api/libre/test-connection', async (req, res) => {
+  const lang = getReqLang(req);
   const logs = [];
   const addLog = (msg) => {
     const entry = `${formatLogTime()} ${msg}`;
@@ -269,28 +348,28 @@ app.post('/api/libre/test-connection', async (req, res) => {
     const { email, password, region = 'US' } = req.body;
 
     if (!email || !password) {
-      addLog('❌ Validation failed: Email and password are required.');
+      addLog(getServerText('server.logs.validationFailed', lang));
       logGlucoseActivity('/api/libre/test-connection', 'WARN', 'Test connection validation failed: missing email or password.');
       return res.status(400).json({
         success: false,
-        error: 'Email and password are required',
-        suggestion: 'Please enter your LibreLinkUp follower email and password.',
+        error: getServerText('server.validation.emailPasswordRequired', lang),
+        suggestion: getServerText('server.validation.emailPasswordRequiredSuggestion', lang),
         logs
       });
     }
 
     const maskedEmail = email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
-    addLog(`🚀 Initializing LibreLinkUp connection test for account: ${maskedEmail} (Region: ${region})`);
+    addLog(getServerText('server.logs.testInit', lang, { email: maskedEmail, region }));
     logGlucoseActivity('/api/libre/test-connection', 'INFO', `Starting test connection for: ${maskedEmail} (Region: ${region})`);
 
     const ClientClass = await getLibreLinkClient();
     if (!ClientClass) {
-      throw new Error('librelinkup-api-client library could not be loaded.');
+      throw new Error(getServerText('server.validation.clientLibraryError', lang));
     }
 
     const defaultApiUrl = REGION_URLS[region.toUpperCase()] || REGION_URLS['GLOBAL'];
-    addLog(`🌐 Target endpoint: ${defaultApiUrl}`);
-    addLog('📦 Using librelinkup-api-client engine...');
+    addLog(getServerText('server.logs.targetEndpoint', lang, { url: defaultApiUrl }));
+    addLog(getServerText('server.logs.usingEngine', lang));
 
     const client = new ClientClass({
       email: email.trim(),
@@ -299,34 +378,34 @@ app.post('/api/libre/test-connection', async (req, res) => {
       lluVersion: '4.16.0'
     });
 
-    addLog('🔐 Step 1/3: Authenticating with Abbott servers...');
+    addLog(getServerText('server.logs.step1Auth', lang));
     const loginResp = await client.login();
-    addLog(`✓ Step 1 Complete: Authentication successful (Status: ${loginResp?.status})`);
+    addLog(getServerText('server.logs.step1Success', lang, { status: loginResp?.status || 200 }));
 
-    addLog('🔍 Step 2/3: Querying connected patient sensors...');
+    addLog(getServerText('server.logs.step2Query', lang));
     const connectionsResp = await client.fetchConnections();
     const connections = connectionsResp?.data || [];
-    addLog(`✓ Step 2 Complete: Found ${connections.length} connected patient(s)`);
+    addLog(getServerText('server.logs.step2Success', lang, { count: connections.length }));
 
     if (!connections.length) {
-      addLog('⚠️ Warning: No patient connections found. Ensure sensor sharing is accepted.');
+      addLog(getServerText('server.logs.noPatientsWarn', lang));
       logGlucoseActivity('/api/libre/test-connection', 'WARN', `Authenticated ${maskedEmail} but no shared patient found.`);
       return res.json({
         success: true,
         hasPatient: false,
         user: client.me,
-        warning: 'Login succeeded, but no connected patient was found in LibreLinkUp.',
-        suggestion: 'Ensure the sensor wearer has sent a sharing invitation and you have accepted it in the LibreLinkUp app.',
+        warning: getServerText('server.diagnostics.noPatientMsg', lang),
+        suggestion: getServerText('server.diagnostics.noPatientSuggestion', lang),
         logs
       });
     }
 
     const primaryPatient = connections[0];
-    const patientName = `${primaryPatient.firstName || ''} ${primaryPatient.lastName || ''}`.trim() || 'Patient';
+    const patientName = `${primaryPatient.firstName || ''} ${primaryPatient.lastName || ''}`.trim() || getServerText('server.sensor.patientDefault', lang);
     const patientId = primaryPatient.patientId || primaryPatient.id;
-    addLog(`👤 Primary Patient: "${patientName}" (Patient ID: ${patientId})`);
+    addLog(getServerText('server.logs.primaryPatient', lang, { name: patientName, id: patientId }));
 
-    addLog('📊 Step 3/3: Fetching latest real-time glucose reading & graph data...');
+    addLog(getServerText('server.logs.step3Fetch', lang));
     const readingResp = await client.fetchReading();
     const connectionData = readingResp?.data?.connection || readingResp?.connection;
     const glucoseItem = connectionData?.glucoseMeasurement || connectionData?.glucoseItem;
@@ -343,8 +422,8 @@ app.post('/api/libre/test-connection', async (req, res) => {
       timestamp = lastPt.Timestamp || timestamp;
     }
 
-    addLog(`✓ Step 3 Complete: Latest Glucose: ${glucoseVal} mg/dL, Trend Arrow: ${trendArrow}, History Points: ${graphData.length}`);
-    addLog('🎉 All tests passed successfully! LibreLinkUp connection is fully operational.');
+    addLog(getServerText('server.logs.step3Success', lang, { glucose: glucoseVal, arrow: trendArrow, count: graphData.length }));
+    addLog(getServerText('server.logs.allTestsPassed', lang));
     logGlucoseActivity('/api/libre/test-connection', 'SUCCESS', `Test connection verified: Glucose ${glucoseVal} mg/dL for ${patientName} (${graphData.length} points)`);
 
     return res.json({
@@ -360,9 +439,9 @@ app.post('/api/libre/test-connection', async (req, res) => {
     });
   } catch (err) {
     const errorDetails = err?.message || String(err);
-    addLog(`❌ Connection Error: ${errorDetails}`);
-    const diagnosis = diagnoseLibreProblem(err, null, req.body?.region);
-    addLog(`💡 Diagnosis: ${diagnosis.title} — ${diagnosis.suggestion}`);
+    addLog(getServerText('server.logs.connectionError', lang, { error: errorDetails }));
+    const diagnosis = diagnoseLibreProblem(err, null, req.body?.region, lang);
+    addLog(getServerText('server.logs.diagnosisLog', lang, { title: diagnosis.title, suggestion: diagnosis.suggestion }));
     logGlucoseActivity('/api/libre/test-connection', 'ERROR', `Test connection failed: ${diagnosis.friendlyMessage}`, { error: errorDetails });
 
     res.status(400).json({
@@ -380,12 +459,13 @@ app.post('/api/libre/test-connection', async (req, res) => {
 // LibreLinkUp Standard Login Endpoint
 // ============================================================================
 app.post('/api/libre/login', async (req, res) => {
+  const lang = getReqLang(req);
   try {
     const { email, password, region = 'US' } = req.body;
 
     if (!email || !password) {
       logGlucoseActivity('/api/libre/login', 'WARN', 'Login attempt rejected: missing email or password.');
-      return res.status(400).json({ success: false, error: 'Email and password are required' });
+      return res.status(400).json({ success: false, error: getServerText('server.validation.emailPasswordRequired', lang) });
     }
 
     const maskedEmail = email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
@@ -395,7 +475,7 @@ app.post('/api/libre/login', async (req, res) => {
     const ClientClass = await getLibreLinkClient();
 
     if (!ClientClass) {
-      throw new Error('librelinkup-api-client library could not be loaded.');
+      throw new Error(getServerText('server.validation.clientLibraryError', lang));
     }
 
     const client = new ClientClass({
@@ -419,14 +499,14 @@ app.post('/api/libre/login', async (req, res) => {
         baseUrl: client.apiUrl || defaultApiUrl,
         region,
         patientId: null,
-        patientName: 'Self',
-        warning: 'No shared patient connections found.'
+        patientName: getServerText('server.sensor.patientSelf', lang),
+        warning: getServerText('server.sensor.noConnectionsWarn', lang)
       });
     }
 
     const primaryPatient = connections[0];
     const patientId = primaryPatient.patientId || primaryPatient.id;
-    const patientName = `${primaryPatient.firstName || ''} ${primaryPatient.lastName || ''}`.trim() || 'Patient';
+    const patientName = `${primaryPatient.firstName || ''} ${primaryPatient.lastName || ''}`.trim() || getServerText('server.sensor.patientDefault', lang);
 
     logGlucoseActivity('/api/libre/login', 'SUCCESS', `Login succeeded: Patient="${patientName}" (ID: ${patientId})`);
 
@@ -443,7 +523,7 @@ app.post('/api/libre/login', async (req, res) => {
     });
   } catch (error) {
     console.error('LibreLinkUp login error:', error.message);
-    const diagnosis = diagnoseLibreProblem(error, null, req.body?.region);
+    const diagnosis = diagnoseLibreProblem(error, null, req.body?.region, lang);
     logGlucoseActivity('/api/libre/login', 'ERROR', `Login error: ${diagnosis.friendlyMessage}`, { raw: error.message });
     res.status(401).json({
       success: false,
@@ -458,6 +538,7 @@ app.post('/api/libre/login', async (req, res) => {
 // LibreLinkUp Fetch Latest Glucose & Graph Data
 // ============================================================================
 app.post('/api/libre/readings', async (req, res) => {
+  const lang = getReqLang(req);
   const { token, accountId, baseUrl, patientId, region = 'US', email, password, userId } = req.body;
   const maskedEmail = email ? email.replace(/(.{2})(.*)(@.*)/, '$1***$3') : 'N/A';
 
@@ -471,12 +552,12 @@ app.post('/api/libre/readings', async (req, res) => {
 
     const ClientClass = await getLibreLinkClient();
     if (!ClientClass) {
-      throw new Error('librelinkup-api-client library could not be loaded.');
+      throw new Error(getServerText('server.validation.clientLibraryError', lang));
     }
 
     if (!email || !password) {
       logGlucoseActivity('/api/libre/readings', 'WARN', 'Readings request missing email/password credentials.');
-      return res.status(400).json({ success: false, error: 'Email and password are required for LibreLinkUp' });
+      return res.status(400).json({ success: false, error: getServerText('server.validation.emailPasswordRequiredReadings', lang) });
     }
 
     logGlucoseActivity('/api/libre/readings', 'INFO', 'Using librelinkup-api-client to fetch readings...');
@@ -525,7 +606,7 @@ app.post('/api/libre/readings', async (req, res) => {
         isLow: false,
         isUrgentLow: false,
         history: [],
-        warning: 'Sensor is warming up or synchronizing latest data.',
+        warning: getServerText('server.sensor.warmingUp', lang),
         newToken: didReauth ? activeToken : undefined,
         newAccountId: didReauth ? activeAccountId : undefined,
         newBaseUrl: didReauth ? activeBaseUrl : undefined,
@@ -560,7 +641,7 @@ app.post('/api/libre/readings', async (req, res) => {
           ValueInMgPerDl: pt.ValueInMgPerDl !== undefined ? pt.ValueInMgPerDl : pt.Value,
           Timestamp: pt.Timestamp || pt.timestamp
         })),
-        warning: 'Sensor is warming up or synchronizing latest data.',
+        warning: getServerText('server.sensor.warmingUp', lang),
         newToken: didReauth ? activeToken : undefined,
         newAccountId: didReauth ? activeAccountId : undefined,
         newBaseUrl: didReauth ? activeBaseUrl : undefined,
@@ -601,7 +682,7 @@ app.post('/api/libre/readings', async (req, res) => {
     });
   } catch (error) {
     const errorDetails = error.message;
-    const diagnosis = diagnoseLibreProblem(error, null, req.body?.region);
+    const diagnosis = diagnoseLibreProblem(error, null, req.body?.region, lang);
     const status = error.message && error.message.includes('Invalid credentials') ? 401 : 502;
 
     logGlucoseActivity('/api/libre/readings', 'ERROR', `Failed to fetch readings: ${diagnosis.friendlyMessage} (HTTP ${status})`, { error: errorDetails });
@@ -618,26 +699,26 @@ app.post('/api/libre/readings', async (req, res) => {
 
 // Common Timezone to Default Geo Coordinates Mapping
 const TIMEZONE_LOCATIONS = {
-  'Asia/Jerusalem': { lat: 31.7683, lng: 35.2137, name: 'Jerusalem, Israel' },
-  'Israel': { lat: 31.7683, lng: 35.2137, name: 'Jerusalem, Israel' },
-  'America/New_York': { lat: 40.7128, lng: -74.0060, name: 'New York, NY' },
-  'America/Detroit': { lat: 42.3314, lng: -83.0458, name: 'Detroit / Southfield, MI' },
-  'America/Chicago': { lat: 41.8781, lng: -87.6298, name: 'Chicago, IL' },
-  'America/Los_Angeles': { lat: 34.0522, lng: -118.2437, name: 'Los Angeles, CA' },
-  'America/Miami': { lat: 25.7617, lng: -80.1918, name: 'Miami, FL' },
-  'America/Toronto': { lat: 43.6532, lng: -79.3832, name: 'Toronto, Canada' },
-  'America/Montreal': { lat: 45.5017, lng: -73.5673, name: 'Montreal, Canada' },
-  'America/Denver': { lat: 39.7392, lng: -104.9903, name: 'Denver, CO' },
-  'America/Phoenix': { lat: 33.4484, lng: -112.0740, name: 'Phoenix, AZ' },
-  'Europe/London': { lat: 51.5074, lng: -0.1278, name: 'London, UK' },
-  'Europe/Paris': { lat: 48.8566, lng: 2.3522, name: 'Paris, France' },
-  'Europe/Berlin': { lat: 52.5200, lng: 13.4050, name: 'Berlin, Germany' },
-  'Europe/Zurich': { lat: 47.3769, lng: 8.5417, name: 'Zurich, Switzerland' },
-  'Australia/Sydney': { lat: -33.8688, lng: 151.2093, name: 'Sydney, Australia' },
-  'Australia/Melbourne': { lat: -37.8136, lng: 144.9631, name: 'Melbourne, Australia' },
-  'America/Sao_Paulo': { lat: -23.5505, lng: -46.6333, name: 'São Paulo, Brazil' },
-  'America/Buenos_Aires': { lat: -34.6037, lng: -58.3816, name: 'Buenos Aires, Argentina' },
-  'Africa/Johannesburg': { lat: -26.2041, lng: 28.0473, name: 'Johannesburg, South Africa' }
+  'Asia/Jerusalem': { lat: 31.7683, lng: 35.2137, key: 'jerusalem' },
+  'Israel': { lat: 31.7683, lng: 35.2137, key: 'jerusalem' },
+  'America/New_York': { lat: 40.7128, lng: -74.0060, key: 'newYork' },
+  'America/Detroit': { lat: 42.3314, lng: -83.0458, key: 'detroit' },
+  'America/Chicago': { lat: 41.8781, lng: -87.6298, key: 'chicago' },
+  'America/Los_Angeles': { lat: 34.0522, lng: -118.2437, key: 'losAngeles' },
+  'America/Miami': { lat: 25.7617, lng: -80.1918, key: 'miami' },
+  'America/Toronto': { lat: 43.6532, lng: -79.3832, key: 'toronto' },
+  'America/Montreal': { lat: 45.5017, lng: -73.5673, key: 'montreal' },
+  'America/Denver': { lat: 39.7392, lng: -104.9903, key: 'denver' },
+  'America/Phoenix': { lat: 33.4484, lng: -112.0740, key: 'phoenix' },
+  'Europe/London': { lat: 51.5074, lng: -0.1278, key: 'london' },
+  'Europe/Paris': { lat: 48.8566, lng: 2.3522, key: 'paris' },
+  'Europe/Berlin': { lat: 52.5200, lng: 13.4050, key: 'berlin' },
+  'Europe/Zurich': { lat: 47.3769, lng: 8.5417, key: 'zurich' },
+  'Australia/Sydney': { lat: -33.8688, lng: 151.2093, key: 'sydney' },
+  'Australia/Melbourne': { lat: -37.8136, lng: 144.9631, key: 'melbourne' },
+  'America/Sao_Paulo': { lat: -23.5505, lng: -46.6333, key: 'saoPaulo' },
+  'America/Buenos_Aires': { lat: -34.6037, lng: -58.3816, key: 'buenosAires' },
+  'Africa/Johannesburg': { lat: -26.2041, lng: 28.0473, key: 'johannesburg' }
 };
 
 // Zmanim Fast End & Yom Kippur Schedule Calculation via kosher-zmanim
@@ -654,19 +735,25 @@ function calculateYomKippurSchedule({
   manualDate = null,
   manualTime = null,
   isManual = false,
-  now = null
+  now = null,
+  lang = 'en'
 }) {
   const tz = timeZoneId || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jerusalem';
+  const isHe = lang === 'he';
 
-  // Auto-resolve coordinates from timezone if not provided or default
-  let locationName = 'Auto Location';
+  // Auto-resolve coordinates and localized location name from timezone lookup
+  let locationName = getServerText('server.zmanim.autoLocation', lang);
+  const match = (!lat || !lng)
+    ? (TIMEZONE_LOCATIONS[tz] || TIMEZONE_LOCATIONS['Asia/Jerusalem'])
+    : TIMEZONE_LOCATIONS[tz];
+
   if (!lat || !lng) {
-    const match = TIMEZONE_LOCATIONS[tz] || TIMEZONE_LOCATIONS['Asia/Jerusalem'];
     lat = match.lat;
     lng = match.lng;
-    locationName = match.name;
-  } else if (TIMEZONE_LOCATIONS[tz]) {
-    locationName = TIMEZONE_LOCATIONS[tz].name;
+  }
+
+  if (match?.key) {
+    locationName = getServerText(`server.locations.${match.key}`, lang);
   }
 
   const parsedLat = parseFloat(lat) || 31.7683;
@@ -766,7 +853,7 @@ function calculateYomKippurSchedule({
   const isYomKippurDay = (status === 'FAST_ACTIVE' && nowDt.toISODate() === ykDt.toISODate());
 
   const hf = new KosherZmanim.HebrewDateFormatter();
-  hf.setHebrewFormat(false);
+  hf.setHebrewFormat(isHe);
   const jcDisplay = new KosherZmanim.JewishCalendar(targetYear || 5787, KosherZmanim.JewishCalendar.TISHREI, 10);
   const hebrewDateStr = hf.format(jcDisplay);
 
@@ -809,6 +896,7 @@ function calculateYomKippurSchedule({
 
 app.post('/api/zmanim/fast-end', (req, res) => {
   try {
+    const lang = getReqLang(req);
     const {
       lat,
       lng,
@@ -833,7 +921,8 @@ app.post('/api/zmanim/fast-end', (req, res) => {
       manualDate: manualDate || (isManual ? date : null),
       manualTime,
       isManual: isManual || Boolean(manualDate),
-      now: now || (date && !isManual ? date : null)
+      now: now || (date && !isManual ? date : null),
+      lang
     });
 
     res.json(result);
@@ -845,7 +934,8 @@ app.post('/api/zmanim/fast-end', (req, res) => {
 
 // Graceful Application Quit Endpoint
 app.post('/api/app/quit', (req, res) => {
-  res.json({ success: true, message: 'Application shutting down...' });
+  const lang = getReqLang(req);
+  res.json({ success: true, message: getServerText('server.app.shuttingDown', lang) });
   setTimeout(() => {
     process.exit(0);
   }, 200);

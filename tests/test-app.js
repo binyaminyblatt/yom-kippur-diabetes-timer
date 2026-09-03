@@ -446,6 +446,31 @@ async function testServerEndpoints() {
     assert.strictEqual(zmanimManual.data.fastEndDate, '2026-10-15');
     assert.strictEqual(zmanimManual.data.fastEndTimeFormatted, '18:55');
     console.log(`✓ Manual Fast schedule override verified: Custom date ${zmanimManual.data.fastEndDate} at ${zmanimManual.data.fastEndTimeFormatted}`);
+
+    // Scenario 6: Hebrew Localized Zmanim calculation
+    const zmanimHebrew = await fetchJson('/api/zmanim/fast-end', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lat: 31.7683,
+        lng: 35.2137,
+        timeZoneId: 'Asia/Jerusalem',
+        lang: 'he'
+      })
+    });
+    assert.strictEqual(zmanimHebrew.status, 200);
+    assert.strictEqual(zmanimHebrew.data.success, true);
+    assert.ok(zmanimHebrew.data.locationName.includes('ירושלים'), 'Location name must be localized in Hebrew');
+    console.log(`✓ Localized Hebrew Zmanim calculated without errors: ${zmanimHebrew.data.locationName} (${zmanimHebrew.data.hebrewDateStr})`);
+
+    // Test /api/languages endpoint
+    const langResp = await fetchJson('/api/languages');
+    assert.strictEqual(langResp.status, 200, '/api/languages must return 200');
+    assert.strictEqual(langResp.data.success, true);
+    assert.ok(Array.isArray(langResp.data.languages), 'languages must be an array');
+    assert.ok(langResp.data.languages.some(l => l.code === 'en'), 'Must include en');
+    assert.ok(langResp.data.languages.some(l => l.code === 'he'), 'Must include he');
+    console.log(`✓ /api/languages returned ${langResp.data.languages.length} auto-discovered languages`);
   } finally {
     if (server && server.close) {
       server.close();

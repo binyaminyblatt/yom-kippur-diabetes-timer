@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&family=Rubik:wght@300;400;500;600;700;800;900&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=2">
 </head>
@@ -30,45 +30,60 @@
         </svg>
       </div>
       <div>
-        <h1 class="brand-title">Yom Kippur Diabetes Timer</h1>
-        <p class="brand-subtitle">Achila l'Shiurim Interval Cadence &amp; LibreLinkUp CGM</p>
+        <h1 class="brand-title" data-i18n="brand.title">Yom Kippur Diabetes Timer</h1>
+        <p class="brand-subtitle" data-i18n="brand.subtitle">Achila l'Shiurim Interval Cadence &amp; LibreLinkUp CGM</p>
       </div>
     </div>
 
     <div class="header-status-group">
+      <!-- Language Switcher -->
+      <div class="lang-selector-wrap" data-i18n-title="header.languageSelectTitle" title="Change Language / החלף שפה">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" class="lang-globe-icon">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="2" y1="12" x2="22" y2="12"></line>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+        </svg>
+        <select id="selectLanguageHeader" class="language-select header-lang-select" aria-label="Select Language">
+          <option value="en">English</option>
+          <option value="he">עברית</option>
+        </select>
+      </div>
+
       <!-- Wall Clock -->
       <div class="clock-badge">
-        <span class="clock-label">TIME</span>
+        <span class="clock-label" data-i18n="header.time">TIME</span>
         <span id="wallClock" class="clock-val">12:00:00</span>
       </div>
 
       <!-- Fast End Countdown Badge -->
       <div class="clock-badge fast-end-header-badge" id="fastEndHeaderBadge"
         title="Countdown to Motzei Yom Kippur (Fast End)">
-        <span class="clock-label">FAST ENDS IN</span>
+        <span class="clock-label" data-i18n="header.fastEndsIn">FAST ENDS IN</span>
         <span id="headerFastEndCountdown" class="clock-val fast-end-val">--:--:--</span>
       </div>
 
       <!-- Wake Lock Indicator -->
       <div id="wakeLockBadge" class="status-chip chip-active"
+        data-i18n-title="header.wakeLockTitle"
         title="Keeps your screen and computer awake for 25+ hours">
         <span class="chip-dot"></span>
-        <span id="wakeLockText">Screen Awake</span>
+        <span id="wakeLockText" data-i18n="header.screenAwake">Screen Awake</span>
       </div>
 
       <!-- Screen & Keyboard Lock Toggle -->
       <button id="btnLockToggle" class="btn-lock-toggle"
+        data-i18n-title="header.lockShieldTitle"
         title="Lock keyboard & screen controls (Cat & Accidental Touch Shield)">
         <svg id="lockIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"
           height="16">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
           <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
         </svg>
-        <span id="lockToggleText">Lock Shield</span>
+        <span id="lockToggleText" data-i18n="header.lockShield">Lock Shield</span>
       </button>
 
       <!-- Fullscreen Toggle -->
-      <button id="btnFullscreen" class="btn-icon" title="Toggle Fullscreen">
+      <button id="btnFullscreen" class="btn-icon" data-i18n-title="header.toggleFullscreen" title="Toggle Fullscreen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3">
           </path>
@@ -76,14 +91,14 @@
       </button>
 
       <!-- Ambient / Night Mode Toggle -->
-      <button id="btnAmbient" class="btn-icon" title="Toggle Night / Ambient Dim Mode">
+      <button id="btnAmbient" class="btn-icon" data-i18n-title="header.toggleNightMode" title="Toggle Night / Ambient Dim Mode">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
         </svg>
       </button>
 
       <!-- Checklist Quick Button -->
-      <button id="btnHeaderChecklist" class="btn-icon" title="Erev Yom Kippur Setup Checklist">
+      <button id="btnHeaderChecklist" class="btn-icon" data-i18n-title="header.checklist" title="Erev Yom Kippur Setup Checklist">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M9 11l3 3L22 4"></path>
           <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
@@ -91,7 +106,7 @@
       </button>
 
       <!-- Settings Button -->
-      <button id="btnSettings" class="btn-icon" title="Open Settings">
+      <button id="btnSettings" class="btn-icon" data-i18n-title="header.settings" title="Open Settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3"></circle>
           <path
@@ -101,7 +116,7 @@
       </button>
 
       <!-- Exit Application Button -->
-      <button id="btnExitApp" class="btn-icon btn-exit-app" title="Exit Application (Ctrl+Q)">
+      <button id="btnExitApp" class="btn-icon btn-exit-app" data-i18n-title="header.exitApp" title="Exit Application (Ctrl+Q)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
           <polyline points="16 17 21 12 16 7"></polyline>
@@ -115,9 +130,8 @@
   <div class="safety-banner">
     <div class="safety-icon">⚠️</div>
     <div class="safety-text">
-      <strong>Pikuach Nefesh (Saving Life) Overrides Fasting:</strong>
-      If blood glucose drops critically or you experience severe hypoglycemic symptoms, treat immediately with
-      fast-acting carbs according to medical guidance.
+      <strong data-i18n="safety.title">Pikuach Nefesh (Saving Life) Overrides Fasting:</strong>
+      <span data-i18n="safety.text">If blood glucose drops critically or you experience severe hypoglycemic symptoms, treat immediately with fast-acting carbs according to medical guidance.</span>
     </div>
   </div>
 
@@ -126,15 +140,15 @@
     <div class="lock-shield-content">
       <div class="lock-shield-icon">🛡️</div>
       <div class="lock-shield-text">
-        <strong>Cat &amp; Touch Lock Active:</strong> Keyboard and touch controls are shielded. Alarms and chimes run
-        automatically.
+        <strong data-i18n="lockShield.bannerTitle">Cat &amp; Touch Lock Active:</strong>
+        <span data-i18n="lockShield.bannerText">Keyboard and touch controls are shielded. Alarms and chimes run automatically.</span>
       </div>
       <button id="btnBannerUnlock" class="btn-shield-unlock">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
           <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
         </svg>
-        Unlock with PIN
+        <span data-i18n="lockShield.unlockWithPin">Unlock with PIN</span>
       </button>
     </div>
   </div>
@@ -143,37 +157,37 @@
   <div class="fast-end-bar">
     <div class="fast-end-col">
       <div class="fast-end-label-row">
-        <span class="fast-end-label">🕯️ FAST CONCLUSION (MOTZEI YOM KIPPUR)</span>
-        <span id="fastStatusBadge" class="fast-status-chip badge-upcoming">Yom Kippur</span>
+        <span class="fast-end-label" data-i18n="fastEnd.title">🕯️ FAST CONCLUSION (MOTZEI YOM KIPPUR)</span>
+        <span id="fastStatusBadge" class="fast-status-chip badge-upcoming" data-i18n="fastEnd.statusYomKippur">Yom Kippur</span>
       </div>
       <div class="fast-end-time-display">
         <strong id="displayFastEndTime">--:--</strong>
         <span id="displayFastEndDate" class="fast-end-date-text"></span>
-        <span id="displayFastEndLocation" class="fast-end-subtext">📍 Detecting location...</span>
+        <span id="displayFastEndLocation" class="fast-end-subtext" data-i18n="fastEnd.detectingLocation">📍 Detecting location...</span>
       </div>
       <div class="fast-end-synagogue-note">
-        <span class="synagogue-note-icon">🕍</span> Please verify against the calendar provided by your local synagogue
+        <span class="synagogue-note-icon">🕍</span> <span data-i18n="fastEnd.synagogueNote">Please verify against the calendar provided by your local synagogue</span>
       </div>
     </div>
     <div class="fast-end-col">
-      <span class="fast-end-label">⏳ TIME REMAINING</span>
+      <span class="fast-end-label" data-i18n="fastEnd.timeRemaining">⏳ TIME REMAINING</span>
       <div id="displayFastEndRemaining" class="fast-end-remaining-time">--h --m --s</div>
       <span id="displayFastStartNote" class="fast-start-note"></span>
     </div>
     <div class="fast-end-col">
-      <span class="fast-end-label">🍽️ SHIURIM PACING</span>
-      <div id="displayRemainingIntervals" class="fast-end-intervals">~0 intervals left</div>
+      <span class="fast-end-label" data-i18n="fastEnd.shiurimPacing">🍽️ SHIURIM PACING</span>
+      <div id="displayRemainingIntervals" class="fast-end-intervals" data-i18n="fastEnd.intervalsLeftEnded">~0 intervals left</div>
     </div>
     <div class="fast-end-extra-wrap">
-      <label for="selectFastEndExtra" class="fast-end-extra-label">Extra Time:</label>
+      <label for="selectFastEndExtra" class="fast-end-extra-label" data-i18n="fastEnd.extraTime">Extra Time:</label>
       <select id="selectFastEndExtra" class="form-select-extra"
         title="Additional minutes added to Tzeit Hakochavim / Motzei Yom Kippur">
-        <option value="0">+0 min (Standard Tzeit 8.5°)</option>
-        <option value="18" selected>+18 min (Chumra)</option>
-        <option value="30">+30 min</option>
-        <option value="42">+42 min (Sunset + 42m)</option>
-        <option value="50">+50 min (Sunset + 50m)</option>
-        <option value="72">+72 min (Rabbeinu Tam)</option>
+        <option value="0" data-i18n="fastEnd.extraOptions.opt0">+0 min (Standard Tzeit 8.5°)</option>
+        <option value="18" selected data-i18n="fastEnd.extraOptions.opt18">+18 min (Chumra)</option>
+        <option value="30" data-i18n="fastEnd.extraOptions.opt30">+30 min</option>
+        <option value="42" data-i18n="fastEnd.extraOptions.opt42">+42 min (Sunset + 42m)</option>
+        <option value="50" data-i18n="fastEnd.extraOptions.opt50">+50 min (Sunset + 50m)</option>
+        <option value="72" data-i18n="fastEnd.extraOptions.opt72">+72 min (Rabbeinu Tam)</option>
       </select>
     </div>
   </div>
@@ -185,19 +199,19 @@
     <section class="card timer-card">
       <div class="card-header">
         <div class="card-title-group">
-          <span class="card-tag">STAGGERED INTERVAL CADENCE</span>
-          <h2 class="card-heading">Eating Interval Timer</h2>
+          <span class="card-tag" data-i18n="timer.tag">STAGGERED INTERVAL CADENCE</span>
+          <h2 class="card-heading" data-i18n="timer.heading">Eating Interval Timer</h2>
         </div>
         <div class="interval-badge">
-          <span>Target Interval ($T$):</span>
+          <span data-i18n="timer.targetInterval">Target Interval (T):</span>
           <strong id="displayTargetInterval">09:00</strong>
-          <span class="badge-split">Half Split ($\Delta$): <strong id="displayHalfInterval">04:30</strong></span>
+          <span class="badge-split"><span data-i18n="timer.halfSplit">Half Split (Δ):</span> <strong id="displayHalfInterval">04:30</strong></span>
         </div>
       </div>
 
       <!-- Presets & Sound Theme Selector -->
       <div class="presets-container">
-        <span class="presets-label">Shiurim Presets:</span>
+        <span class="presets-label" data-i18n="timer.presetsLabel">Shiurim Presets:</span>
         <div class="presets-buttons">
           <button class="btn-preset active" data-seconds="540">9 min</button>
           <button class="btn-preset" data-seconds="480">8 min</button>
@@ -205,19 +219,19 @@
           <button class="btn-preset" data-seconds="360">6 min</button>
           <button class="btn-preset" data-seconds="300">5 min</button>
           <button class="btn-preset" data-seconds="240">4 min</button>
-          <button class="btn-preset" data-seconds="10" title="Quick 10-second test interval">10s Test</button>
+          <button class="btn-preset" data-seconds="10" data-i18n="timer.test10s" data-i18n-title="timer.test10sTitle" title="Quick 10-second test interval">10s Test</button>
         </div>
       </div>
 
       <!-- Ambient Sound Profile Bar -->
       <div class="sound-profile-bar">
-        <span class="sound-bar-label">🎵 Sound Tone (Sleep &amp; Background Friendly):</span>
+        <span class="sound-bar-label" data-i18n="timer.soundToneLabel">🎵 Sound Tone (Sleep &amp; Background Friendly):</span>
         <select id="selectQuickSoundProfile" class="form-select-compact">
-          <option value="zen-bowl">🧘 Zen Meditation Bowl (Deep &amp; Gentle - Sleep Friendly)</option>
-          <option value="warm-marimba">🪵 Warm Wooden Marimba (Soft Mallet)</option>
-          <option value="whisper-bell">🎐 Whisper Wind Bell (Subtle &amp; Airy)</option>
-          <option value="water-pluck">💧 Gentle Water Pluck (Organic &amp; Quiet)</option>
-          <option value="soft-cabin" selected>✈️ Soft Cabin Chime (Low Octave)</option>
+          <option value="zen-bowl" data-i18n="soundProfiles.zenBowl">🧘 Zen Meditation Bowl (Deep &amp; Gentle - Sleep Friendly)</option>
+          <option value="warm-marimba" data-i18n="soundProfiles.warmMarimba">🪵 Warm Wooden Marimba (Soft Mallet)</option>
+          <option value="whisper-bell" data-i18n="soundProfiles.whisperBell">🎐 Whisper Wind Bell (Subtle &amp; Airy)</option>
+          <option value="water-pluck" data-i18n="soundProfiles.waterPluck">💧 Gentle Water Pluck (Organic &amp; Quiet)</option>
+          <option value="soft-cabin" selected data-i18n="soundProfiles.softCabin">✈️ Soft Cabin Chime (Low Octave)</option>
         </select>
       </div>
 
@@ -229,7 +243,7 @@
             <circle id="progressRingBar" class="progress-ring-bar" cx="120" cy="120" r="105"></circle>
           </svg>
           <div class="progress-ring-content">
-            <span class="countdown-tag" id="nextChimeTag">NEXT CHIME (T/2 SPLIT)</span>
+            <span class="countdown-tag" id="nextChimeTag" data-i18n="timer.nextChimeTag">NEXT CHIME (T/2 SPLIT)</span>
             <div id="masterCountdownDigits" class="countdown-digits">04:30</div>
             <div id="nextChimeBadge" class="next-chime-pill chime-pill-a">
               <span class="pill-dot"></span>
@@ -245,27 +259,27 @@
         <div id="trackACard" class="track-card track-a">
           <div class="track-header">
             <div class="track-indicator">
-              <span class="track-badge">TRACK A</span>
-              <span id="trackAToneLabel" class="track-tone">Warm Meditation Bowl (C4)</span>
+              <span class="track-badge" data-i18n="timer.trackA">TRACK A</span>
+              <span id="trackAToneLabel" class="track-tone" data-i18n="timer.trackToneA">Warm Meditation Bowl (C4)</span>
             </div>
             <button id="btnTestA" class="btn-pill-action" title="Preview Track A tone">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                 <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
               </svg>
-              Test Chime
+              <span data-i18n="timer.testChimes">Test Chime</span>
             </button>
           </div>
           <div class="track-body">
             <div class="track-countdown" id="trackACountdown">09:00</div>
             <div class="track-meta">
-              <span>Repeats every <strong id="trackAInterval">9m</strong></span>
-              <span class="track-sync-desc">Eat on Track A</span>
+              <span><span data-i18n="timer.repeatsEvery">Repeats every</span> <strong id="trackAInterval">9m</strong></span>
+              <span class="track-sync-desc" data-i18n="timer.eatOnTrackA">Eat on Track A</span>
             </div>
           </div>
           <div class="track-footer">
             <button id="btnSyncA" class="btn-sync" title="Immediately align Track A start with now">
-              ⚡ Start / Sync on Track A
+              ⚡ <span data-i18n="timer.syncTrackA">Start / Sync on Track A</span>
             </button>
           </div>
         </div>
@@ -274,27 +288,27 @@
         <div id="trackBCard" class="track-card track-b">
           <div class="track-header">
             <div class="track-indicator">
-              <span class="track-badge">TRACK B</span>
-              <span id="trackBToneLabel" class="track-tone">Deep Serene Bowl (A3)</span>
+              <span class="track-badge" data-i18n="timer.trackB">TRACK B</span>
+              <span id="trackBToneLabel" class="track-tone" data-i18n="timer.trackToneB">Deep Serene Bowl (A3)</span>
             </div>
             <button id="btnTestB" class="btn-pill-action" title="Preview Track B tone">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                 <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
               </svg>
-              Test Chime
+              <span data-i18n="timer.testChimes">Test Chime</span>
             </button>
           </div>
           <div class="track-body">
             <div class="track-countdown" id="trackBCountdown">04:30</div>
             <div class="track-meta">
-              <span>Repeats every <strong id="trackBInterval">9m</strong> (Offset $\Delta$)</span>
-              <span class="track-sync-desc">Eat on Track B</span>
+              <span><span data-i18n="timer.repeatsEvery">Repeats every</span> <strong id="trackBInterval">9m</strong> (Offset Δ)</span>
+              <span class="track-sync-desc" data-i18n="timer.eatOnTrackB">Eat on Track B</span>
             </div>
           </div>
           <div class="track-footer">
             <button id="btnSyncB" class="btn-sync" title="Immediately align Track B start with now">
-              ⚡ Start / Sync on Track B
+              ⚡ <span data-i18n="timer.syncTrackB">Start / Sync on Track B</span>
             </button>
           </div>
         </div>
@@ -306,7 +320,7 @@
           <svg id="startPauseIcon" viewBox="0 0 24 24" fill="currentColor">
             <polygon points="5 3 19 12 5 21 5 3"></polygon>
           </svg>
-          <span id="startPauseText">Start Timer</span>
+          <span id="startPauseText" data-i18n="timer.start">Start Timer</span>
         </button>
 
         <button id="btnReset" class="btn-secondary">
@@ -314,11 +328,11 @@
             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
             <path d="M3 3v5h5"></path>
           </svg>
-          Reset
+          <span data-i18n="timer.reset">Reset</span>
         </button>
 
-        <button id="btnFastForward" class="btn-secondary" title="Advance timer by 30s (Testing)">
-          +30s Test
+        <button id="btnFastForward" class="btn-secondary" data-i18n-title="timer.fastForwardTitle" title="Advance timer by 30s (Testing)">
+          <span data-i18n="timer.fastForward">+30s Test</span>
         </button>
       </div>
 
@@ -326,9 +340,8 @@
       <div class="halachic-tip">
         <div class="tip-icon">💡</div>
         <div class="tip-text">
-          <strong>Why the half-split ($T/2$)?</strong> If you decide to start eating at any point, you never wait more
-          than ~4.5 minutes for the next chime. Once you hear your chime (A or B), take your portion, then simply repeat
-          every time you hear that <em>same</em> chime again!
+          <strong data-i18n="timer.halachicTipTitle">Why the half-split (T/2)?</strong>
+          <span data-i18n="timer.halachicTipText">If you decide to start eating at any point, you never wait more than ~4.5 minutes for the next chime. Once you hear your chime (A or B), take your portion, then simply repeat every time you hear that same chime again!</span>
         </div>
       </div>
     </section>
@@ -338,17 +351,17 @@
     <section class="card cgm-card" id="cgmCard">
       <div class="card-header">
         <div class="card-title-group">
-          <span class="card-tag">CONTINUOUS GLUCOSE MONITOR</span>
-          <h2 class="card-heading">LibreLinkUp CGM</h2>
+          <span class="card-tag" data-i18n="cgm.tag">CONTINUOUS GLUCOSE MONITOR</span>
+          <h2 class="card-heading" data-i18n="cgm.heading">LibreLinkUp CGM</h2>
         </div>
         <div class="cgm-status-badges">
           <button id="btnToggleCGM" class="btn-cgm-toggle active" title="Turn LibreLinkUp CGM and alarms On or Off">
             <span class="cgm-toggle-dot"></span>
-            <span id="cgmToggleText">CGM: Active</span>
+            <span id="cgmToggleText" data-i18n="cgm.active">CGM: Active</span>
           </button>
           <div id="cgmConnectionBadge" class="status-chip chip-demo">
             <span class="chip-dot"></span>
-            <span id="cgmConnectionText">Demo Simulator</span>
+            <span id="cgmConnectionText" data-i18n="cgm.statusDemo">Demo Simulator</span>
           </div>
           <button id="btnToggleUnit" class="btn-unit-toggle" title="Toggle mg/dL and mmol/L">
             mg/dL
@@ -360,10 +373,9 @@
       <div id="cgmDisabledOverlay" class="cgm-disabled-overlay hidden">
         <div class="disabled-content">
           <div class="disabled-icon">💤</div>
-          <h3 class="disabled-title">CGM Sensor Monitoring is Off</h3>
-          <p class="disabled-desc">Glucose alarms are completely silenced. The Eating Interval Timer operates normally
-            in the background.</p>
-          <button id="btnEnableCGM" class="btn-primary btn-sm">Turn On LibreLinkUp CGM</button>
+          <h3 class="disabled-title" data-i18n="cgm.disabledTitle">CGM Sensor Monitoring is Off</h3>
+          <p class="disabled-desc" data-i18n="cgm.disabledDesc">Glucose alarms are completely silenced. The Eating Interval Timer operates normally in the background.</p>
+          <button id="btnEnableCGM" class="btn-primary btn-sm" data-i18n="cgm.btnEnable">Turn On LibreLinkUp CGM</button>
         </div>
       </div>
 
@@ -372,12 +384,11 @@
         <div class="alarm-banner-content">
           <div class="alarm-icon">🔔</div>
           <div class="alarm-text-block">
-            <h3 id="alarmTitle" class="alarm-title">Low Glucose Alert (&lt; 70 mg/dL)</h3>
-            <p id="alarmMessage" class="alarm-message">Auto-silences in 5 seconds (Shabbat / Yom Kippur hands-free
-              mode).</p>
+            <h3 id="alarmTitle" class="alarm-title" data-i18n="cgm.alarmTitle">Low Glucose Alert (&lt; 70 mg/dL)</h3>
+            <p id="alarmMessage" class="alarm-message" data-i18n="cgm.alarmMessage">Auto-silences in 5 seconds (Shabbat / Yom Kippur hands-free mode).</p>
           </div>
         </div>
-        <button id="btnSnoozeAlarm" class="btn-snooze" title="Snooze warning for 15 minutes">
+        <button id="btnSnoozeAlarm" class="btn-snooze" data-i18n="cgm.snooze" title="Snooze warning for 15 minutes">
           Snooze (15m)
         </button>
       </div>
@@ -390,13 +401,13 @@
             <span id="glucoseUnitDisplay" class="glucose-unit">mg/dL</span>
             <div id="trendArrowBadge" class="trend-badge trend-steady">
               <span id="trendArrowSymbol" class="trend-symbol">→</span>
-              <span id="trendArrowText" class="trend-text">Steady</span>
+              <span id="trendArrowText" class="trend-text" data-i18n="cgm.trend.steady">Steady</span>
             </div>
           </div>
         </div>
 
         <div class="glucose-status-col">
-          <div id="glucoseStatusBadge" class="glucose-status-pill status-in-range">
+          <div id="glucoseStatusBadge" class="glucose-status-pill status-in-range" data-i18n="cgm.inTargetRange">
             In Target Range
           </div>
           <span id="cgmUpdatedTime" class="cgm-time-text">Updated just now</span>
@@ -406,15 +417,15 @@
       <!-- TARGET RANGE BAR -->
       <div class="range-thresholds-bar">
         <div class="threshold-item">
-          <span class="th-label">Low Alarm:</span>
+          <span class="th-label" data-i18n="cgm.lowAlarmLabel">Low Alarm:</span>
           <strong id="displayTargetLow">&lt; 70 mg/dL</strong>
         </div>
         <div class="threshold-item">
-          <span class="th-label">Target Zone:</span>
+          <span class="th-label" data-i18n="cgm.targetZoneLabel">Target Zone:</span>
           <strong>70 – 180 mg/dL</strong>
         </div>
         <div class="threshold-item">
-          <span class="th-label">High Alarm:</span>
+          <span class="th-label" data-i18n="cgm.highAlarmLabel">High Alarm:</span>
           <strong id="displayTargetHigh">&gt; 180 mg/dL</strong>
         </div>
       </div>
@@ -422,7 +433,7 @@
       <!-- 12-HOUR GLUCOSE TREND GRAPH -->
       <div class="chart-container">
         <div class="chart-header-row">
-          <span class="chart-title">12-Hour Glucose Trend</span>
+          <span class="chart-title" data-i18n="cgm.history12h">12-Hour Glucose Trend</span>
           <span class="chart-legend"><span class="legend-dot in-range"></span> Target (70-180)</span>
         </div>
         <canvas id="cgmChart" class="cgm-canvas" height="190"></canvas>
@@ -430,12 +441,12 @@
 
       <!-- DEMO TEST CONTROLS (Quick triggers for testing alarms) -->
       <div id="demoControlsSection" class="demo-controls-panel">
-        <span class="demo-label">Simulator Quick Tests:</span>
+        <span class="demo-label" data-i18n="cgm.simulatorQuickTests">Simulator Quick Tests:</span>
         <div class="demo-buttons">
-          <button class="btn-demo-val" data-val="115" data-trend="3">Normal (115)</button>
-          <button class="btn-demo-val" data-val="64" data-trend="2">Low Alert (64)</button>
-          <button class="btn-demo-val" data-val="48" data-trend="1">Urgent Low (48)</button>
-          <button class="btn-demo-val" data-val="215" data-trend="4">High Alert (215)</button>
+          <button class="btn-demo-val" data-val="115" data-trend="3" data-i18n="cgm.demoNormal">Normal (115)</button>
+          <button class="btn-demo-val" data-val="64" data-trend="2" data-i18n="cgm.demoLow">Low Alert (64)</button>
+          <button class="btn-demo-val" data-val="48" data-trend="1" data-i18n="cgm.demoUrgentLow">Urgent Low (48)</button>
+          <button class="btn-demo-val" data-val="215" data-trend="4" data-i18n="cgm.demoHigh">High Alert (215)</button>
         </div>
       </div>
     </section>
@@ -446,7 +457,7 @@
   <div id="settingsModal" class="modal-backdrop hidden">
     <div class="modal-card">
       <div class="modal-header">
-        <h2 class="modal-title">Settings &amp; Configuration</h2>
+        <h2 class="modal-title" data-i18n="settings.title">Settings &amp; Configuration</h2>
         <button id="btnCloseModal" class="btn-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -456,12 +467,25 @@
       </div>
 
       <div class="modal-body">
+        <!-- Section: Language Selection -->
+        <div class="settings-section">
+          <h3 class="section-title">🌐 <span data-i18n="settings.general.language">Interface Language</span></h3>
+          <div class="form-group">
+            <label for="selectModalLanguage" data-i18n="settings.general.language">Interface Language</label>
+            <select id="selectModalLanguage" class="language-select form-select">
+              <option value="en">English</option>
+              <option value="he">עברית (Hebrew)</option>
+            </select>
+            <small class="form-hint" data-i18n="settings.general.languageHelp">Select application display language / בחר שפת ממשק</small>
+          </div>
+        </div>
+
         <!-- Section: Interval Configuration -->
         <div class="settings-section">
-          <h3 class="section-title">⏱️ Eating Interval ($T$)</h3>
+          <h3 class="section-title">⏱️ <span data-i18n="timer.heading">Eating Interval (T)</span></h3>
           <div class="form-row-grid">
             <div class="form-group">
-              <label for="inputIntervalMin">Minutes:</label>
+              <label for="inputIntervalMin" data-i18n="settings.halacha.customInterval">Minutes:</label>
               <input type="number" id="inputIntervalMin" min="0" max="60" value="9" class="form-input">
             </div>
             <div class="form-group">
@@ -473,186 +497,177 @@
 
         <!-- Section: Yom Kippur Fast Schedule -->
         <div class="settings-section">
-          <h3 class="section-title">🕯️ Yom Kippur Fast Schedule &amp; Zmanim</h3>
+          <h3 class="section-title">🕯️ <span data-i18n="settings.zmanim.scheduleTitle">Yom Kippur Fast Schedule &amp; Zmanim</span></h3>
 
           <div class="form-group">
-            <label for="selectFastScheduleMode">Schedule Calculation Mode:</label>
+            <label for="selectFastScheduleMode" data-i18n="settings.zmanim.scheduleMode">Schedule Calculation Mode:</label>
             <select id="selectFastScheduleMode" class="form-select">
-              <option value="auto" selected>✨ Auto-Calculate Yom Kippur Zmanim (Halachic Calendar)</option>
-              <option value="manual">⚙️ Custom / Manual Fast Dates &amp; Times</option>
+              <option value="auto" selected data-i18n="settings.zmanim.modeAuto">✨ Auto-Calculate Yom Kippur Zmanim (Halachic Calendar)</option>
+              <option value="manual" data-i18n="settings.zmanim.modeManual">⚙️ Custom / Manual Fast Dates &amp; Times</option>
             </select>
           </div>
 
           <div id="autoZmanimSummary" class="zmanim-summary-box">
             <div class="zmanim-summary-header">
               <span id="zmanimHebrewYear" class="zmanim-hebrew-title">Yom Kippur</span>
-              <span id="zmanimScheduleBadge" class="badge-tag green">Auto-Resolved</span>
+              <span id="zmanimScheduleBadge" class="badge-tag green" data-i18n="settings.zmanim.autoResolved">Auto-Resolved</span>
             </div>
             <div class="zmanim-grid-info">
-              <div><strong>Fast Starts (Erev YK):</strong> <span id="summaryFastStart">--:--</span></div>
-              <div><strong>Fast Ends (Motzei YK):</strong> <span id="summaryFastEnd">--:--</span></div>
+              <div><strong data-i18n="settings.zmanim.fastStartsErev">Fast Starts (Erev YK):</strong> <span id="summaryFastStart">--:--</span></div>
+              <div><strong data-i18n="settings.zmanim.fastEndsMotzei">Fast Ends (Motzei YK):</strong> <span id="summaryFastEnd">--:--</span></div>
             </div>
-            <small class="form-hint">Automatically resolves Candle Lighting / Sunset on 9 Tishrei through Motzei Yom Kippur (10 Tishrei nightfall + extra time).</small>
+            <small class="form-hint" data-i18n="settings.zmanim.autoSummaryHint">Automatically resolves Candle Lighting / Sunset on 9 Tishrei through Motzei Yom Kippur (10 Tishrei nightfall + extra time).</small>
           </div>
 
           <div id="manualFastFields" class="form-row-grid hidden">
             <div class="form-group">
-              <label for="inputFastEndDate">Fast End Date:</label>
+              <label for="inputFastEndDate" data-i18n="settings.zmanim.fastEndDate">Fast End Date:</label>
               <input type="date" id="inputFastEndDate" class="form-input">
             </div>
             <div class="form-group">
-              <label for="inputFastEndTime">Fast End Time (24h HH:MM):</label>
+              <label for="inputFastEndTime" data-i18n="settings.zmanim.fastEndTime">Fast End Time (24h HH:MM):</label>
               <input type="time" id="inputFastEndTime" value="19:45" class="form-input">
             </div>
           </div>
           <div class="synagogue-notice">
             <span class="synagogue-notice-icon">🕍</span>
             <div class="synagogue-notice-text">
-              <strong>Halachic Guidance:</strong> Zmanim calculations should always be checked and verified against the local calendar provided by your local synagogue or community rabbi.
+              <strong data-i18n="fastEnd.synagogueNote">Halachic Guidance: Zmanim calculations should always be checked and verified against the local calendar provided by your local synagogue or community rabbi.</strong>
             </div>
           </div>
         </div>
 
           <!-- Section: Audio & Alarms -->
           <div class="settings-section">
-            <h3 class="section-title">🔔 Ambient Chimes &amp; Audio</h3>
+            <h3 class="section-title">🔔 <span data-i18n="settings.audio.title">Ambient Chimes &amp; Audio</span></h3>
 
             <div class="form-group">
-              <label for="selectModalSoundProfile">Sound Tone Profile:</label>
+              <label for="selectModalSoundProfile" data-i18n="settings.audio.soundProfile">Sound Tone Profile:</label>
               <select id="selectModalSoundProfile" class="form-select">
-                <option value="zen-bowl" selected>🧘 Zen Meditation Bowl (Deep, Soothing &amp; Sleep Friendly)</option>
-                <option value="warm-marimba">🪵 Warm Wooden Marimba (Soft Felt Mallet)</option>
-                <option value="whisper-bell">🎐 Whisper Wind Bell (Subtle &amp; Airy Shimmer)</option>
-                <option value="water-pluck">💧 Gentle Water Pluck (Organic &amp; Peaceful)</option>
-                <option value="soft-cabin">✈️ Soft Cabin Chime (Low Octave)</option>
+                <option value="zen-bowl" selected data-i18n="soundProfiles.zenBowl">🧘 Zen Meditation Bowl (Deep, Soothing &amp; Sleep Friendly)</option>
+                <option value="warm-marimba" data-i18n="soundProfiles.warmMarimba">🪵 Warm Wooden Marimba (Soft Felt Mallet)</option>
+                <option value="whisper-bell" data-i18n="soundProfiles.whisperBell">🎐 Whisper Wind Bell (Subtle &amp; Airy Shimmer)</option>
+                <option value="water-pluck" data-i18n="soundProfiles.waterPluck">💧 Gentle Water Pluck (Organic &amp; Peaceful)</option>
+                <option value="soft-cabin" data-i18n="soundProfiles.softCabin">✈️ Soft Cabin Chime (Low Octave)</option>
               </select>
-              <small class="form-hint">Ultra-gentle harmonic tones engineered not to disturb sleep or
-                conversations.</small>
+              <small class="form-hint" data-i18n="settings.audio.soundHint">Ultra-gentle harmonic tones engineered not to disturb sleep or conversations.</small>
             </div>
 
             <div class="form-group">
-              <label for="inputVolume">Master Volume (<span id="volumeVal">50%</span>):</label>
+              <label for="inputVolume"><span data-i18n="settings.audio.masterVolume">Master Volume</span> (<span id="volumeVal">50%</span>):</label>
               <input type="range" id="inputVolume" min="0" max="1" step="0.05" value="0.50" class="form-range">
             </div>
 
             <div class="form-row-grid">
               <div class="form-group">
-                <label for="inputAutoShutoff">Alarm Auto-Silencing:</label>
+                <label for="inputAutoShutoff" data-i18n="settings.audio.alarmAutoSilence">Alarm Auto-Silencing:</label>
                 <select id="inputAutoShutoff" class="form-select">
-                  <option value="5">5 seconds (Quick)</option>
-                  <option value="10">10 seconds (Short)</option>
-                  <option value="15">15 seconds</option>
-                  <option value="20" selected>20 seconds (Standard 15-Pulse Cycle)</option>
-                  <option value="30">30 seconds (Extended)</option>
-                  <option value="60">60 seconds (1 Minute)</option>
+                  <option value="5" data-i18n="settings.audio.silence5s">5 seconds (Quick)</option>
+                  <option value="10" data-i18n="settings.audio.silence10s">10 seconds (Short)</option>
+                  <option value="15" data-i18n="settings.audio.silence15s">15 seconds</option>
+                  <option value="20" selected data-i18n="settings.audio.silence20s">20 seconds (Standard 15-Pulse Cycle)</option>
+                  <option value="30" data-i18n="settings.audio.silence30s">30 seconds (Extended)</option>
+                  <option value="60" data-i18n="settings.audio.silence60s">60 seconds (1 Minute)</option>
                 </select>
-                <small class="form-hint">Automatically stops so no one touches the device on Yom Kippur.</small>
+                <small class="form-hint" data-i18n="settings.audio.silenceHint">Automatically stops so no one touches the device on Yom Kippur.</small>
               </div>
               <div class="form-group">
-                <label>Speech Announcements:</label>
+                <label data-i18n="settings.audio.speechAnnouncements">Speech Announcements:</label>
                 <label class="toggle-switch">
                   <input type="checkbox" id="checkSpeech">
                   <span class="toggle-slider"></span>
-                  <span class="toggle-text">Voice readout</span>
+                  <span class="toggle-text" data-i18n="settings.audio.voiceReadout">Voice readout</span>
                 </label>
               </div>
             </div>
 
             <div class="audio-test-row">
-              <button id="btnTestModalA" class="btn-secondary">Test Track A</button>
-              <button id="btnTestModalB" class="btn-secondary">Test Track B</button>
-              <button id="btnTestModalAlarm" class="btn-secondary">Test Glucose Alert</button>
-              <button id="btnTestModalVoice" class="btn-secondary">🗣️ Test Voice Alert</button>
+              <button id="btnTestModalA" class="btn-secondary" data-i18n="settings.audio.testTrackA">Test Track A</button>
+              <button id="btnTestModalB" class="btn-secondary" data-i18n="settings.audio.testTrackB">Test Track B</button>
+              <button id="btnTestModalAlarm" class="btn-secondary" data-i18n="settings.audio.testGlucoseAlert">Test Glucose Alert</button>
+              <button id="btnTestModalVoice" class="btn-secondary" data-i18n="settings.audio.testVoiceAlert">🗣️ Test Voice Alert</button>
             </div>
           </div>
 
           <!-- Section: LibreLinkUp CGM Integration -->
           <div class="settings-section">
-            <h3 class="section-title">🩸 LibreLinkUp CGM Credentials &amp; Alarms</h3>
+            <h3 class="section-title">🩸 <span data-i18n="settings.cgm.title">LibreLinkUp CGM Credentials &amp; Alarms</span></h3>
 
             <div class="form-group">
               <label class="toggle-switch">
                 <input type="checkbox" id="checkCGMEnabled" checked>
                 <span class="toggle-slider"></span>
-                <span class="toggle-text"><strong>Enable LibreLinkUp CGM Monitoring &amp; Alarms</strong></span>
+                <span class="toggle-text"><strong data-i18n="settings.cgm.enableMonitoring">Enable LibreLinkUp CGM Monitoring &amp; Alarms</strong></span>
               </label>
-              <small class="form-hint">Uncheck this if you are not wearing a sensor so glucose alarms will never
-                sound.</small>
+              <small class="form-hint" data-i18n="settings.cgm.enableHint">Uncheck this if you are not wearing a sensor so glucose alarms will never sound.</small>
             </div>
 
             <div class="form-group">
               <label class="toggle-switch">
                 <input type="checkbox" id="checkDemoMode" checked>
                 <span class="toggle-slider"></span>
-                <span class="toggle-text"><strong>Use Simulated CGM Demo Mode</strong> (Offline testing)</span>
+                <span class="toggle-text"><strong data-i18n="settings.cgm.useDemo">Use Simulated CGM Demo Mode</strong> <span data-i18n="settings.cgm.demoTesting">(Offline testing)</span></span>
               </label>
             </div>
 
             <div id="liveLibreFields" class="libre-fields-container hidden">
               <div class="form-group">
-                <label for="inputLibreEmail">LibreLinkUp Email:</label>
+                <label for="inputLibreEmail" data-i18n="settings.cgm.email">LibreLinkUp Email:</label>
                 <input type="email" id="inputLibreEmail" placeholder="your-email@example.com" class="form-input">
               </div>
 
               <div class="form-group">
-                <label for="inputLibrePassword">LibreLinkUp Password:</label>
+                <label for="inputLibrePassword" data-i18n="settings.cgm.password">LibreLinkUp Password:</label>
                 <input type="password" id="inputLibrePassword" placeholder="••••••••••••" class="form-input">
               </div>
 
-              <div class="form-group">
-                <label for="selectLibreRegion">LibreLinkUp Region:</label>
-                <select id="selectLibreRegion" class="form-select">
-                  <option value="US">United States (api-us.libreview.io)</option>
-                  <option value="EU">Europe (api-eu.libreview.io)</option>
-                  <option value="GLOBAL">Global / International (api.libreview.io)</option>
-                  <option value="DE">Germany (api-de.libreview.io)</option>
-                  <option value="FR">France (api-fr.libreview.io)</option>
-                  <option value="JP">Japan (api-jp.libreview.io)</option>
-                  <option value="AP">Asia Pacific (api-ap.libreview.io)</option>
-                  <option value="CA">Canada (api-ca.libreview.io)</option>
-                  <option value="AE">UAE (api-ae.libreview.io)</option>
-                </select>
+              <div class="form-row-grid">
+                <div class="form-group">
+                  <label for="selectLibreRegion" data-i18n="settings.cgm.region">Server Region:</label>
+                  <select id="selectLibreRegion" class="form-select">
+                    <option value="US" selected>🇺🇸 United States (US)</option>
+                    <option value="EU">🇪🇺 Europe (EU)</option>
+                    <option value="DE">🇩🇪 Germany (DE)</option>
+                    <option value="FR">🇫🇷 France (FR)</option>
+                    <option value="JP">🇯🇵 Japan (JP)</option>
+                    <option value="AP">🌏 Asia-Pacific (AP)</option>
+                    <option value="CA">🇨🇦 Canada (CA)</option>
+                    <option value="AE">🇦🇪 Middle East (AE)</option>
+                    <option value="GLOBAL">🌐 Global / Other</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="inputLibrePatientId" data-i18n="settings.cgm.patientId">Patient ID (Optional):</label>
+                  <input type="text" id="inputLibrePatientId" placeholder="Auto-detects first connection" class="form-input font-mono">
+                </div>
               </div>
 
-              <!-- Test Connection Button & Live Feedback Box -->
-              <div class="libre-test-action-row">
-                <button type="button" id="btnTestLibreLogin" class="btn-secondary btn-test-libre">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                  </svg>
-                  <span id="testLibreBtnText">Test &amp; Verify Libre Connection</span>
+              <div class="libre-connection-actions">
+                <button type="button" id="btnTestLibreLogin" class="btn-secondary">
+                  <span id="testLoginBtnSpinner" class="btn-spinner hidden"></span>
+                  <span id="testLoginBtnText" data-i18n="settings.cgm.testConnection">Test Libre Connection</span>
                 </button>
+                <div id="libreLoginStatusMsg" class="connection-status-msg hidden"></div>
               </div>
 
-              <div id="libreTestFeedback" class="libre-test-feedback hidden">
-                <div class="libre-feedback-header">
-                  <span id="libreTestStatusBadge" class="libre-badge badge-pending">Testing...</span>
-                  <span id="libreTestStatusTitle" class="libre-feedback-title">Checking connection...</span>
-                </div>
-                <div id="libreTestMessage" class="libre-feedback-msg"></div>
-                <div id="libreTestSuggestionBox" class="libre-suggestion-box hidden">
-                  <strong class="suggestion-heading">💡 Troubleshooting &amp; Fix:</strong>
-                  <div id="libreTestSuggestion" class="suggestion-text"></div>
-                </div>
-
-                <div class="libre-logs-wrapper">
-                  <button type="button" id="btnToggleLibreLogs" class="btn-text-toggle">
-                    <span id="libreLogsToggleText">Show Diagnostic API Logs</span>
-                    <span id="libreLogToggleArrow">▼</span>
-                  </button>
-                  <pre id="libreLogsConsole" class="libre-logs-console hidden"></pre>
-                </div>
+              <div class="libre-logs-wrapper">
+                <button type="button" id="btnToggleLibreLogs" class="btn-text-toggle">
+                  <span id="libreLogsToggleText" data-i18n="settings.cgm.showLogs">Show Diagnostic API Logs</span>
+                  <span id="libreLogToggleArrow">▼</span>
+                </button>
+                <pre id="libreLogsConsole" class="libre-logs-console hidden"></pre>
               </div>
             </div>
 
             <!-- Thresholds -->
             <div class="form-row-grid">
               <div class="form-group">
-                <label for="inputTargetLow">Low Alarm Threshold (mg/dL):</label>
+                <label for="inputTargetLow" data-i18n="settings.cgm.lowThreshold">Low Alarm Threshold (mg/dL):</label>
                 <input type="number" id="inputTargetLow" min="50" max="100" value="70" class="form-input">
               </div>
               <div class="form-group">
-                <label for="inputTargetHigh">High Alarm Threshold (mg/dL):</label>
+                <label for="inputTargetHigh" data-i18n="settings.cgm.highThreshold">High Alarm Threshold (mg/dL):</label>
                 <input type="number" id="inputTargetHigh" min="140" max="300" value="180" class="form-input">
               </div>
             </div>
@@ -660,24 +675,23 @@
 
           <!-- Section: Passcode Lock & Cat Protection -->
           <div class="settings-section">
-            <h3 class="section-title">🛡️ Cat &amp; Touch Passcode Lock</h3>
+            <h3 class="section-title">🛡️ <span data-i18n="settings.security.title">Cat &amp; Touch Passcode Lock</span></h3>
 
             <div class="form-row-grid">
               <div class="form-group">
-                <label for="inputLockPasscode">4-to-6 Digit Lock PIN:</label>
+                <label for="inputLockPasscode" data-i18n="settings.security.setPin">4-to-6 Digit Lock PIN:</label>
                 <input type="password" id="inputLockPasscode" maxlength="8" placeholder="1234" value="1234"
                   class="form-input font-mono">
-                <small class="form-hint">Protects timer from cats walking on keyboard or accidental bumps (Default:
-                  <strong>1234</strong>).</small>
+                <small class="form-hint" data-i18n="settings.security.pinHint">Protects timer from cats walking on keyboard or accidental bumps (Default: 1234).</small>
               </div>
               <div class="form-group">
-                <label>Auto-Lock Feature:</label>
+                <label data-i18n="settings.security.autoLock">Auto-Lock Feature:</label>
                 <label class="toggle-switch">
                   <input type="checkbox" id="checkAutoLock">
                   <span class="toggle-slider"></span>
-                  <span class="toggle-text">Auto-lock 1m after start</span>
+                  <span class="toggle-text" data-i18n="settings.security.autoLockOption">Auto-lock 1m after start</span>
                 </label>
-                <small class="form-hint">Automatically engages lock after you hit Start.</small>
+                <small class="form-hint" data-i18n="settings.security.autoLockHint">Automatically engages lock after you hit Start.</small>
               </div>
             </div>
           </div>
@@ -686,17 +700,17 @@
             <div class="checklist-promo-card">
               <div class="checklist-promo-icon">📋</div>
               <div class="checklist-promo-info">
-                <strong class="checklist-promo-title">Erev Yom Kippur Setup Checklist</strong>
-                <p class="checklist-promo-desc">Review the 6-step pre-fast preparation guide (intervals, audio test, Libre CGM, lock shield).</p>
+                <strong class="checklist-promo-title" data-i18n="checklist.title">Erev Yom Kippur Setup Checklist</strong>
+                <p class="checklist-promo-desc" data-i18n="checklist.subtitle">Review the pre-fast preparation guide (intervals, audio test, Libre CGM, lock shield).</p>
               </div>
-              <button type="button" id="btnOpenChecklistFromSettings" class="btn-secondary btn-sm">View Checklist</button>
+              <button type="button" id="btnOpenChecklistFromSettings" class="btn-secondary btn-sm" data-i18n="checklist.close">View Checklist</button>
             </div>
           </div>
         </div>
 
         <div class="modal-footer settings-modal-footer">
-          <button type="button" id="btnExitFromSettings" class="btn-secondary btn-danger-outline">🛑 Exit App</button>
-          <button id="btnSaveSettings" class="btn-primary">Save Settings</button>
+          <button type="button" id="btnExitFromSettings" class="btn-secondary btn-danger-outline" data-i18n="header.exitApp">🛑 Exit App</button>
+          <button id="btnSaveSettings" class="btn-primary" data-i18n="settings.btnSave">Save Settings</button>
         </div>
       </div>
     </div>
@@ -705,10 +719,10 @@
     <div id="checklistModal" class="modal-backdrop hidden">
       <div class="modal-card checklist-card">
         <div class="modal-header checklist-header">
-          <div class="checklist-header-badge">📋 PRE-FAST GUIDE</div>
-          <h2 class="modal-title">Erev Yom Kippur Setup Checklist</h2>
-          <p class="checklist-subtitle">Complete these 6 steps before candle lighting so the app runs untouched for 25+ hours</p>
-          <button id="btnCloseChecklistModal" class="btn-icon checklist-close-btn" title="Close Checklist">
+          <div class="checklist-header-badge" data-i18n="checklist.guideBadge">📋 PRE-FAST GUIDE</div>
+          <h2 class="modal-title" data-i18n="checklist.title">Erev Yom Kippur Setup Checklist</h2>
+          <p class="checklist-subtitle" data-i18n="checklist.subtitle">Complete all steps before candle lighting so the app runs untouched for 25+ hours</p>
+          <button id="btnCloseChecklistModal" class="btn-icon checklist-close-btn" data-i18n-title="checklist.close" title="Close Checklist">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -722,8 +736,8 @@
             <div class="checklist-step-item">
               <div class="step-num">1</div>
               <div class="step-content">
-                <div class="step-title">🖥️ Fullscreen &amp; Display Awake</div>
-                <div class="step-desc">Keep screen in fullscreen. The <span class="badge-tag green">Screen Awake</span> badge confirms display sleep prevention is active.</div>
+                <div class="step-title" data-i18n="checklist.step1Title">🖥️ Fullscreen &amp; Display Awake</div>
+                <div class="step-desc" data-i18n="checklist.step1Desc">Keep screen in fullscreen. The Screen Awake badge confirms display sleep prevention is active.</div>
               </div>
             </div>
 
@@ -731,8 +745,8 @@
             <div class="checklist-step-item">
               <div class="step-num">2</div>
               <div class="step-content">
-                <div class="step-title">⏱️ Set Eating Interval &amp; Fast End Time</div>
-                <div class="step-desc">Configure your rabbinic/medical interval (9m, 8m, 6m, 4m) and verify your local Motzei Yom Kippur time in <strong>Settings</strong> (⚙️) against the calendar provided by your local synagogue.</div>
+                <div class="step-title" data-i18n="checklist.step2Title">⏱️ Set Eating Interval &amp; Fast End Time</div>
+                <div class="step-desc" data-i18n="checklist.step2Desc">Configure your rabbinic/medical interval (9m, 8m, 6m, 4m) and verify your local Motzei Yom Kippur time in Settings (⚙️) against the calendar provided by your local synagogue.</div>
               </div>
             </div>
 
@@ -740,8 +754,8 @@
             <div class="checklist-step-item">
               <div class="step-num">3</div>
               <div class="step-content">
-                <div class="step-title">🩸 LibreLinkUp CGM Connected</div>
-                <div class="step-desc">If wearing a FreeStyle Libre sensor, connect your LibreLinkUp account (or keep Simulated Demo Mode enabled for testing).</div>
+                <div class="step-title" data-i18n="checklist.step3Title">🩸 LibreLinkUp CGM Connected</div>
+                <div class="step-desc" data-i18n="checklist.step3Desc">If wearing a FreeStyle Libre sensor, connect your LibreLinkUp account (or keep Simulated Demo Mode enabled for testing).</div>
               </div>
             </div>
 
@@ -749,8 +763,8 @@
             <div class="checklist-step-item">
               <div class="step-num">4</div>
               <div class="step-content">
-                <div class="step-title">🔔 Test Sound &amp; Chime Volume</div>
-                <div class="step-desc">Test Track A, Track B, and Glucose alarms. All chimes auto-silence in 3–5 seconds so no one touches the device on Yom Kippur.</div>
+                <div class="step-title" data-i18n="checklist.step4Title">🔔 Test Sound &amp; Chime Volume</div>
+                <div class="step-desc" data-i18n="checklist.step4Desc">Test Track A, Track B, and Glucose alarms. All chimes auto-silence in 3–5 seconds so no one touches the device on Yom Kippur.</div>
               </div>
             </div>
 
@@ -758,8 +772,8 @@
             <div class="checklist-step-item">
               <div class="step-num">5</div>
               <div class="step-content">
-                <div class="step-title">▶️ Start the Timer</div>
-                <div class="step-desc">Press <strong>Start Timer</strong> before the fast begins so the dual-track countdown begins ticking.</div>
+                <div class="step-title" data-i18n="checklist.step5Title">▶️ Start the Timer</div>
+                <div class="step-desc" data-i18n="checklist.step5Desc">Press Start Timer before the fast begins so the dual-track countdown begins ticking.</div>
               </div>
             </div>
 
@@ -767,8 +781,8 @@
             <div class="checklist-step-item">
               <div class="step-num">6</div>
               <div class="step-content">
-                <div class="step-title">🛡️ Engage Lock Shield</div>
-                <div class="step-desc">Click <strong>Lock Shield</strong> (🛡️) in the top header. This blocks all keyboard keys, mouse wheel, and pets from altering your timer.</div>
+                <div class="step-title" data-i18n="checklist.step6Title">🛡️ Engage Lock Shield</div>
+                <div class="step-desc" data-i18n="checklist.step6Desc">Click Lock Shield (🛡️) in the top header. This blocks all keyboard keys, mouse wheel, and pets from altering your timer.</div>
               </div>
             </div>
           </div>
@@ -777,14 +791,14 @@
             <label class="toggle-switch">
               <input type="checkbox" id="checkHideStartupChecklist">
               <span class="toggle-slider"></span>
-              <span class="toggle-text">Don't show this checklist automatically on startup</span>
+              <span class="toggle-text" data-i18n="checklist.dontShowAgain">Don't show this checklist automatically on startup</span>
             </label>
           </div>
         </div>
 
         <div class="modal-footer checklist-footer">
-          <button id="btnChecklistGoSettings" class="btn-secondary">⚙️ Open Settings</button>
-          <button id="btnChecklistDone" class="btn-primary">✓ Got It, Ready for Yom Kippur</button>
+          <button id="btnChecklistGoSettings" class="btn-secondary" data-i18n="checklist.openSettings">⚙️ Open Settings</button>
+          <button id="btnChecklistDone" class="btn-primary" data-i18n="checklist.close">Close Checklist</button>
         </div>
       </div>
     </div>
@@ -800,10 +814,10 @@
             </svg>
           </div>
           <div>
-            <h2 class="modal-title">Enter PIN to Unlock</h2>
-            <p class="passcode-subtitle">Protects timer from accidental touches / cats</p>
+            <h2 class="modal-title" data-i18n="lockShield.enterPinTitle">Enter PIN to Unlock</h2>
+            <p class="passcode-subtitle" data-i18n="lockShield.enterPinSubtitle">Protects timer from accidental touches / cats</p>
           </div>
-          <button id="btnClosePasscodeModal" class="btn-icon passcode-close-btn" title="Keep Locked">
+          <button id="btnClosePasscodeModal" class="btn-icon passcode-close-btn" data-i18n-title="lockShield.btnCancel" title="Keep Locked">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -814,7 +828,7 @@
         <div class="modal-body passcode-body">
           <!-- Prominent PIN helper banner (showing the PIN directly to the user) -->
           <div class="passcode-pin-reminder">
-            <span class="reminder-label">Your Unlock PIN:</span>
+            <span class="reminder-label" data-i18n="lockShield.yourUnlockPin">Your Unlock PIN:</span>
             <span id="displayUnlockPin" class="reminder-pin">1234</span>
           </div>
 
@@ -824,7 +838,7 @@
               inputmode="numeric" pattern="[0-9]*" autocomplete="off" autofocus>
           </div>
 
-          <div id="passcodeErrorMsg" class="passcode-error-msg hidden">Incorrect PIN. Try again.</div>
+          <div id="passcodeErrorMsg" class="passcode-error-msg hidden" data-i18n="lockShield.invalidPin">Incorrect PIN. Try again.</div>
 
           <!-- Numeric On-Screen Keypad -->
           <div class="pin-keypad-grid">
@@ -850,14 +864,14 @@
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                 <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
               </svg>
-              Unlock Now
+              <span data-i18n="lockShield.btnUnlock">Unlock Now</span>
             </button>
           </div>
 
           <!-- 1-minute auto-close countdown -->
         <div class="passcode-timeout-footer">
           <span class="timeout-dot"></span>
-          <span>Auto-closes in <strong id="passcodeTimeoutCountdown">60s</strong> if idle</span>
+          <span><span data-i18n="lockShield.autoClosesIn">Auto-closes in</span> <strong id="passcodeTimeoutCountdown">60s</strong> <span data-i18n="lockShield.ifIdle">if idle</span></span>
         </div>
       </div>
     </div>
@@ -869,8 +883,8 @@
       <div class="modal-header exit-modal-header">
         <div class="exit-header-icon">🛑</div>
         <div>
-          <h2 class="modal-title">Exit Yom Kippur Timer?</h2>
-          <p class="exit-subtitle">Are you sure you want to close the application?</p>
+          <h2 class="modal-title" data-i18n="exitModal.title">Exit Yom Kippur Timer?</h2>
+          <p class="exit-subtitle" data-i18n="exitModal.subtitle">Are you sure you want to close the application?</p>
         </div>
         <button id="btnCloseExitModal" class="btn-icon exit-close-btn" title="Cancel">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -881,23 +895,25 @@
       </div>
 
       <div class="modal-body exit-modal-body">
-        <p class="exit-warning-text">If the eating timer or CGM alarms are running, closing this application will stop all countdowns and continuous glucose monitoring.</p>
+        <p class="exit-warning-text" data-i18n="exitModal.warningText">If the eating timer or CGM alarms are running, closing this application will stop all countdowns and continuous glucose monitoring.</p>
         
         <!-- 15-second auto-cancel countdown -->
         <div class="exit-timeout-footer">
           <span class="timeout-dot"></span>
-          <span>Auto-cancels in <strong id="exitTimeoutCountdown">15s</strong> if untouched</span>
+          <span><span data-i18n="exitModal.autoCancelsIn">Auto-cancels in</span> <strong id="exitTimeoutCountdown">15s</strong> <span data-i18n="exitModal.ifUntouched">if untouched</span></span>
         </div>
       </div>
 
       <div class="modal-footer exit-modal-footer">
-        <button id="btnCancelExit" class="btn-secondary">Cancel (Stay Open)</button>
-        <button id="btnConfirmExit" class="btn-danger">Exit Application</button>
+        <button id="btnCancelExit" class="btn-secondary" data-i18n="exitModal.stayOpen">Cancel (Stay Open)</button>
+        <button id="btnConfirmExit" class="btn-danger" data-i18n="exitModal.exitAction">Exit Application</button>
       </div>
     </div>
   </div>
 
   <!-- Scripts -->
+    <script src="vendor/i18next.min.js"></script>
+    <script src="i18n.js?v=2"></script>
     <script src="audio-engine.js?v=2"></script>
     <script src="timer-engine.js?v=2"></script>
     <script src="chart-renderer.js?v=2"></script>

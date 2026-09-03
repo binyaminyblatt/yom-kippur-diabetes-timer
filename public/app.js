@@ -19,12 +19,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // DOM Elements - Navigation & System
   const wallClockEl = document.getElementById('wallClock');
+  const selectLanguageHeader = document.getElementById('selectLanguageHeader');
+  const selectModalLanguage = document.getElementById('selectModalLanguage');
   const wakeLockBadge = document.getElementById('wakeLockBadge');
   const wakeLockText = document.getElementById('wakeLockText');
   const btnFullscreen = document.getElementById('btnFullscreen');
   const btnAmbient = document.getElementById('btnAmbient');
   const btnSettings = document.getElementById('btnSettings');
   const screenFlash = document.getElementById('screenFlash');
+
+  // Initialize i18n engine
+  if (window.i18n) {
+    window.i18n.init().then((lang) => {
+      if (selectLanguageHeader) selectLanguageHeader.value = lang;
+      if (selectModalLanguage) selectModalLanguage.value = lang;
+    });
+
+    if (selectLanguageHeader) {
+      selectLanguageHeader.addEventListener('change', (e) => {
+        const lang = e.target.value;
+        window.i18n.changeLanguage(lang);
+        if (selectModalLanguage) selectModalLanguage.value = lang;
+      });
+    }
+
+    if (selectModalLanguage) {
+      selectModalLanguage.addEventListener('change', (e) => {
+        const lang = e.target.value;
+        window.i18n.changeLanguage(lang);
+        if (selectLanguageHeader) selectLanguageHeader.value = lang;
+      });
+    }
+
+    document.addEventListener('languageChanged', () => {
+      updateFastEndCountdown();
+      if (timer) {
+        updateTimerUI(timer.getState());
+      }
+    });
+  }
 
   // DOM Elements - Lock Shield & Passcode
   const btnLockToggle = document.getElementById('btnLockToggle');
@@ -235,7 +268,8 @@ document.addEventListener('DOMContentLoaded', () => {
         lng: detectedLng,
         timeZoneId: tz,
         additionalMinutes: extraMinutes,
-        isManual: scheduleMode === 'manual'
+        isManual: scheduleMode === 'manual',
+        lang: window.i18n ? window.i18n.getCurrentLanguage() : 'en'
       };
 
       if (scheduleMode === 'manual' && fastEndDate) {
@@ -245,7 +279,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const resp = await fetch('/api/zmanim/fast-end', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept-Language': window.i18n?.getCurrentLanguage() || 'en'
+        },
         body: JSON.stringify(bodyPayload)
       });
       const data = await resp.json();
@@ -354,18 +391,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Date text beside time display
     if (displayFastEndDate && fastEndDate) {
       const isToday = now.toISOString().split('T')[0] === fastEndDate;
-      displayFastEndDate.textContent = isToday ? '(Tonight)' : `(${formatDisplayDate(fastEndDate)})`;
+      const tonightText = window.i18n ? window.i18n.t('fastEnd.tonight') : '(Tonight)';
+      displayFastEndDate.textContent = isToday ? tonightText : `(${formatDisplayDate(fastEndDate)})`;
     }
 
     if (isFastEnded) {
-      headerFastEndCountdown.textContent = 'CONCLUDED';
+      headerFastEndCountdown.textContent = window.i18n ? window.i18n.t('fastEnd.concludedCountdown') : 'CONCLUDED';
       headerFastEndCountdown.classList.add('fast-end-concluded');
-      displayFastEndRemaining.textContent = '🎉 Fast Concluded (Motzei Yom Kippur)';
+      displayFastEndRemaining.textContent = window.i18n ? window.i18n.t('fastEnd.fastConcludedMsg') : '🎉 Fast Concluded (Motzei Yom Kippur)';
       displayFastEndRemaining.classList.add('concluded');
-      displayRemainingIntervals.textContent = '0 intervals left (Fast has ended)';
+      displayRemainingIntervals.textContent = window.i18n ? window.i18n.t('fastEnd.intervalsLeftEnded') : '0 intervals left (Fast has ended)';
       if (fastStatusBadge) {
         fastStatusBadge.className = 'fast-status-chip badge-concluded';
-        fastStatusBadge.textContent = '✓ Concluded';
+        fastStatusBadge.textContent = window.i18n ? window.i18n.t('fastEnd.statusConcluded') : '✓ Concluded';
       }
       if (displayFastStartNote) {
         displayFastStartNote.textContent = '';
@@ -389,17 +427,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isFastStarted) {
       // FAST ACTIVE (During Yom Kippur Night or Yom Kippur Day)
       headerFastEndCountdown.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
-      displayFastEndRemaining.textContent = `${h}h ${m}m ${s}s remaining`;
-      displayRemainingIntervals.textContent = `~${intervalsLeft} eating intervals left (${intervalMinStr}m each)`;
+      displayFastEndRemaining.textContent = `${h}h ${m}m ${s}s`;
+      displayRemainingIntervals.textContent = window.i18n
+        ? window.i18n.t('fastEnd.intervalsRemaining', { count: intervalsLeft, minutes: intervalMinStr })
+        : `~${intervalsLeft} eating intervals left (${intervalMinStr}m each)`;
 
       if (fastStatusBadge) {
         const todayIso = now.toISOString().split('T')[0];
         if (isYomKippurNight || (fastStartDate && todayIso === fastStartDate && now.getHours() >= 17)) {
           fastStatusBadge.className = 'fast-status-chip badge-yk-night';
-          fastStatusBadge.textContent = '🌙 Yom Kippur Night';
+          fastStatusBadge.textContent = window.i18n ? window.i18n.t('fastEnd.statusNight') : '🌙 Yom Kippur Night';
         } else {
           fastStatusBadge.className = 'fast-status-chip badge-yk-day';
-          fastStatusBadge.textContent = '☀️ Yom Kippur Day';
+          fastStatusBadge.textContent = window.i18n ? window.i18n.t('fastEnd.statusDay') : '☀️ Yom Kippur Day';
         }
       }
       if (displayFastStartNote) {
@@ -411,20 +451,28 @@ document.addEventListener('DOMContentLoaded', () => {
       const remH = h % 24;
       if (days >= 1) {
         headerFastEndCountdown.textContent = `${days}d ${pad(remH)}h`;
-        displayFastEndRemaining.textContent = `${days}d ${remH}h ${m}m until Motzei YK`;
+        displayFastEndRemaining.textContent = window.i18n
+          ? window.i18n.t('fastEnd.daysRemaining', { days, hours: remH, minutes: m })
+          : `${days}d ${remH}h ${m}m until Motzei YK`;
       } else {
         headerFastEndCountdown.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
-        displayFastEndRemaining.textContent = `${h}h ${m}m ${s}s until Motzei YK`;
+        displayFastEndRemaining.textContent = window.i18n
+          ? window.i18n.t('fastEnd.untilMotzeiYK', { time: `${h}h ${m}m ${s}s` })
+          : `${h}h ${m}m ${s}s until Motzei YK`;
       }
 
-      displayRemainingIntervals.textContent = `~${intervalsLeft} intervals during fast (${intervalMinStr}m each)`;
+      displayRemainingIntervals.textContent = window.i18n
+        ? window.i18n.t('fastEnd.intervalsDuringFast', { count: intervalsLeft, minutes: intervalMinStr })
+        : `~${intervalsLeft} intervals during fast (${intervalMinStr}m each)`;
 
       if (fastStatusBadge) {
         fastStatusBadge.className = 'fast-status-chip badge-upcoming';
-        fastStatusBadge.textContent = '⏳ Upcoming Fast';
+        fastStatusBadge.textContent = window.i18n ? window.i18n.t('fastEnd.statusUpcoming') : '⏳ Upcoming Fast';
       }
       if (displayFastStartNote && fastStartDate && fastStartTime) {
-        displayFastStartNote.textContent = `Starts ${formatDisplayDate(fastStartDate)} at ${fastStartTime}`;
+        displayFastStartNote.textContent = window.i18n
+          ? window.i18n.t('fastEnd.startsOn', { date: formatDisplayDate(fastStartDate), time: fastStartTime })
+          : `Starts ${formatDisplayDate(fastStartDate)} at ${fastStartTime}`;
       }
     }
   }
@@ -1132,22 +1180,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      const curLang = window.i18n ? window.i18n.getCurrentLanguage() : 'en';
       btnTestLibreLogin.disabled = true;
-      if (testLibreBtnText) testLibreBtnText.textContent = 'Testing Connection...';
+      if (testLibreBtnText) testLibreBtnText.textContent = window.i18n ? window.i18n.t('settings.cgm.testBtnTesting') : 'Testing Connection...';
       libreTestFeedback.classList.remove('hidden', 'feedback-success', 'feedback-error');
       libreTestFeedback.classList.add('feedback-pending');
       libreTestStatusBadge.className = 'libre-badge badge-pending';
-      libreTestStatusBadge.textContent = 'Testing...';
-      libreTestStatusTitle.textContent = 'Authenticating with Abbott Cloud...';
-      libreTestMessage.textContent = `Connecting to ${region} regional endpoint and verifying follower credentials...`;
+      libreTestStatusBadge.textContent = window.i18n ? window.i18n.t('settings.cgm.testingBadge') : 'Testing...';
+      libreTestStatusTitle.textContent = window.i18n ? window.i18n.t('settings.cgm.testingTitle') : 'Authenticating with Abbott Cloud...';
+      libreTestMessage.textContent = window.i18n ? window.i18n.t('settings.cgm.testingMsg', { region }) : `Connecting to ${region} regional endpoint and verifying follower credentials...`;
       libreTestSuggestionBox.classList.add('hidden');
-      if (libreLogsConsole) libreLogsConsole.textContent = 'Connecting...';
+      if (libreLogsConsole) libreLogsConsole.textContent = curLang === 'he' ? 'מתחבר...' : 'Connecting...';
 
       try {
         const resp = await fetch('/api/libre/test-connection', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, region })
+          headers: { 'Content-Type': 'application/json', 'Accept-Language': curLang },
+          body: JSON.stringify({ email, password, region, lang: curLang })
         });
         const data = await resp.json();
 
@@ -1159,25 +1208,27 @@ document.addEventListener('DOMContentLoaded', () => {
           libreTestFeedback.classList.remove('feedback-pending', 'feedback-error');
           libreTestFeedback.classList.add('feedback-success');
           libreTestStatusBadge.className = 'libre-badge badge-success';
-          libreTestStatusBadge.textContent = 'Connected ✓';
+          libreTestStatusBadge.textContent = window.i18n ? window.i18n.t('settings.cgm.connectedBadge') : 'Connected ✓';
 
           if (data.hasPatient) {
-            libreTestStatusTitle.textContent = `Connected to "${data.patientName}"`;
-            libreTestMessage.innerHTML = `Successfully authenticated! <strong>Current Glucose: ${data.latestGlucose} mg/dL</strong> (${data.historyPointsCount || 0} graph points loaded). Sensor is online.`;
+            libreTestStatusTitle.textContent = curLang === 'he' ? `מחובר ל-"${data.patientName}"` : `Connected to "${data.patientName}"`;
+            libreTestMessage.innerHTML = window.i18n
+              ? window.i18n.t('settings.cgm.successMsg', { val: data.latestGlucose, count: data.historyPointsCount || 0 })
+              : `Successfully authenticated! <strong>Current Glucose: ${data.latestGlucose} mg/dL</strong> (${data.historyPointsCount || 0} graph points loaded). Sensor is online.`;
             libreTestSuggestionBox.classList.add('hidden');
           } else {
-            libreTestStatusTitle.textContent = 'Login Succeeded (No Patient Linked)';
-            libreTestMessage.textContent = data.warning || 'Authentication succeeded, but no connected sensor was found.';
+            libreTestStatusTitle.textContent = window.i18n ? window.i18n.t('settings.cgm.noPatientTitle') : 'Login Succeeded (No Patient Linked)';
+            libreTestMessage.textContent = data.warning || (curLang === 'he' ? 'ההתחברות הצליחה, אך לא נמצא חיישן מחובר.' : 'Authentication succeeded, but no connected sensor was found.');
             libreTestSuggestionBox.classList.remove('hidden');
-            libreTestSuggestion.textContent = data.suggestion || 'In the LibreLinkUp app, accept the sharing invite from the sensor wearer.';
+            libreTestSuggestion.textContent = data.suggestion || (curLang === 'he' ? 'באפליקציית LibreLinkUp בסמארטפון, אשר את הזמנת השיתוף מהאדם העונד את החיישן.' : 'In the LibreLinkUp app, accept the sharing invite from the sensor wearer.');
           }
         } else {
           libreTestFeedback.classList.remove('feedback-pending', 'feedback-success');
           libreTestFeedback.classList.add('feedback-error');
           libreTestStatusBadge.className = 'libre-badge badge-error';
-          libreTestStatusBadge.textContent = 'Login Failed ❌';
-          libreTestStatusTitle.textContent = data.errorTitle || 'Authentication Error';
-          libreTestMessage.textContent = data.error || 'Failed to authenticate with LibreLinkUp.';
+          libreTestStatusBadge.textContent = window.i18n ? window.i18n.t('settings.cgm.failedBadge') : 'Login Failed ❌';
+          libreTestStatusTitle.textContent = data.errorTitle || (curLang === 'he' ? 'שגיאת אימות' : 'Authentication Error');
+          libreTestMessage.textContent = data.error || (curLang === 'he' ? 'ההתחברות ל-LibreLinkUp נכשלה.' : 'Failed to authenticate with LibreLinkUp.');
 
           if (data.suggestion) {
             libreTestSuggestionBox.classList.remove('hidden');
@@ -1190,13 +1241,13 @@ document.addEventListener('DOMContentLoaded', () => {
         libreTestFeedback.classList.remove('feedback-pending', 'feedback-success');
         libreTestFeedback.classList.add('feedback-error');
         libreTestStatusBadge.className = 'libre-badge badge-error';
-        libreTestStatusBadge.textContent = 'Network Error';
-        libreTestStatusTitle.textContent = 'Could Not Contact Local Backend';
-        libreTestMessage.textContent = netErr.message || 'Request failed';
+        libreTestStatusBadge.textContent = window.i18n ? window.i18n.t('settings.cgm.netErrorBadge') : 'Network Error';
+        libreTestStatusTitle.textContent = window.i18n ? window.i18n.t('settings.cgm.netErrorTitle') : 'Could Not Contact Local Backend';
+        libreTestMessage.textContent = netErr.message || (curLang === 'he' ? 'הבקשה נכשלה' : 'Request failed');
         libreTestSuggestionBox.classList.add('hidden');
       } finally {
         btnTestLibreLogin.disabled = false;
-        if (testLibreBtnText) testLibreBtnText.textContent = 'Test & Verify Libre Connection';
+        if (testLibreBtnText) testLibreBtnText.textContent = window.i18n ? window.i18n.t('settings.cgm.testBtnDefault') : 'Test & Verify Libre Connection';
       }
     });
   }
@@ -1216,10 +1267,6 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         localStorage.setItem('yom_kippur_speech_enabled', String(isEnabled));
       } catch (e) {}
-      if (isEnabled) {
-        audio.init();
-        audio.speak('Voice alerts enabled');
-      }
     });
   }
 
@@ -1249,7 +1296,8 @@ document.addEventListener('DOMContentLoaded', () => {
       audio.init();
       const prevSpeech = audio.speechEnabled;
       audio.setSpeech(true);
-      audio.speak('Voice alerts are active. Yom Kippur timer is running.');
+      const isHe = window.i18n && window.i18n.getCurrentLanguage() === 'he';
+      audio.speak(isHe ? 'בדיקת התראה קולית: התראת סוכר נמוך' : 'Glucose voice alert test: Low glucose alert');
       if (!prevSpeech && checkSpeech && !checkSpeech.checked) {
         setTimeout(() => {
           if (!checkSpeech.checked) audio.setSpeech(false);

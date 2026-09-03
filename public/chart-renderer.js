@@ -102,7 +102,8 @@ class ChartRenderer {
     if (this.history.length === 0) {
       ctx.fillStyle = '#94a3b8';
       ctx.textAlign = 'center';
-      ctx.fillText('No CGM history data available yet', width / 2, height / 2);
+      const noDataText = (typeof window !== 'undefined' && window.i18n) ? window.i18n.t('cgm.noData') : 'No CGM history data available yet';
+      ctx.fillText(noDataText, width / 2, height / 2);
       return;
     }
 
@@ -181,9 +182,13 @@ class ChartRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     const yTime = padding.top + chartH + 8;
-    ctx.fillText('12h ago', padding.left + 15, yTime);
-    ctx.fillText('6h ago', padding.left + chartW * 0.5, yTime);
-    ctx.fillText('Now', padding.left + chartW - 5, yTime);
+    const label12h = (typeof window !== 'undefined' && window.i18n) ? window.i18n.t('cgm.chart12hAgo') : '12h ago';
+    const label6h = (typeof window !== 'undefined' && window.i18n) ? window.i18n.t('cgm.chart6hAgo') : '6h ago';
+    const labelNow = (typeof window !== 'undefined' && window.i18n) ? window.i18n.t('cgm.chartNow') : 'Now';
+
+    ctx.fillText(label12h, padding.left + 15, yTime);
+    ctx.fillText(label6h, padding.left + chartW * 0.5, yTime);
+    ctx.fillText(labelNow, padding.left + chartW - 5, yTime);
   }
 }
 

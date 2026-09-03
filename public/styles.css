@@ -3,7 +3,7 @@
    ========================================================================== */
 
 :root {
-  --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-main: 'Outfit', 'Heebo', 'Rubik', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Color Palette - Midnight Slate & Jewel Accents */
@@ -2497,4 +2497,126 @@ body.app-locked .cgm-card {
 
 .hidden {
   display: none !important;
+}
+
+/* ==========================================================================
+   Language Selector Component
+   ========================================================================== */
+.lang-selector-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-full);
+  padding: 4px 10px 4px 12px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.lang-selector-wrap:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.lang-globe-icon {
+  color: var(--accent-cyan);
+  flex-shrink: 0;
+}
+
+.header-lang-select {
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  padding: 0;
+}
+
+.header-lang-select option {
+  background: #0e1526;
+  color: #f8fafc;
+}
+
+/* ==========================================================================
+   Right-to-Left (RTL) Layout Support for Hebrew
+   ========================================================================== */
+[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+  font-family: 'Heebo', 'Rubik', var(--font-main);
+}
+
+[dir="rtl"] .app-header {
+  flex-direction: row;
+}
+
+[dir="rtl"] .header-brand {
+  gap: 12px;
+}
+
+[dir="rtl"] .fast-end-bar {
+  direction: rtl;
+}
+
+[dir="rtl"] .dashboard-grid {
+  direction: rtl;
+}
+
+[dir="rtl"] .exit-warning-text {
+  border-left: none;
+  border-right: 3px solid #ef4444;
+}
+
+[dir="rtl"] .safety-banner {
+  border-left: none;
+  border-right: 4px solid var(--status-yellow);
+}
+
+[dir="rtl"] .lock-shield-banner {
+  border-left: none;
+  border-right: 4px solid var(--accent-cyan);
+}
+
+[dir="rtl"] .exit-modal-footer,
+[dir="rtl"] .modal-footer {
+  justify-content: flex-start;
+}
+
+[dir="rtl"] .exit-close-btn,
+[dir="rtl"] .passcode-close-btn,
+[dir="rtl"] #btnCloseModal,
+[dir="rtl"] #btnCloseChecklist {
+  right: auto;
+  left: 16px;
+}
+
+[dir="rtl"] .form-help,
+[dir="rtl"] .form-hint {
+  text-align: right;
+}
+
+[dir="rtl"] .toggle-text {
+  margin-left: 0;
+  margin-right: 10px;
+}
+
+[dir="rtl"] .countdown-digits,
+[dir="rtl"] .clock-val,
+[dir="rtl"] #wallClock,
+[dir="rtl"] #headerFastEndCountdown,
+[dir="rtl"] #displayFastEndRemaining,
+[dir="rtl"] #masterCountdownDigits,
+[dir="rtl"] #trackACountdown,
+[dir="rtl"] #trackBCountdown,
+[dir="rtl"] #displayTargetInterval,
+[dir="rtl"] #displayHalfInterval,
+[dir="rtl"] #glucoseValue,
+[dir="rtl"] #displayUnlockPin,
+[dir="rtl"] .visible-pin-input {
+  direction: ltr;
+  unicode-bidi: embed;
 }

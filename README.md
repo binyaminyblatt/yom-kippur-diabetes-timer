@@ -1,5 +1,7 @@
 # 🕯️ Yom Kippur Diabetes Interval Timer & LibreLinkUp CGM
 
+[**English**](README.md) | [**עברית (Hebrew)**](README.he.md) | [**Translation Guide**](TRANSLATION_GUIDE.md)
+
 An automated, unattended **Eating Interval (*Achila l'Shiurim*) Timer and Continuous Glucose Monitor (CGM) Display** designed specifically for individuals with diabetes or medical needs who must consume measured portions on **Yom Kippur** (*Pikuach Nefesh*) without operating electronics during the fast.
 
 > [!WARNING]
@@ -165,6 +167,17 @@ Before Yom Kippur begins:
 4. **Test Audio**: Click **Test Track A**, **Test Track B**, and **Test Glucose Alert** to confirm volume and sound profile.
 5. **Start Timer**: Click **Start Timer**.
 6. **Engage Lock Shield**: Click the **Lock Shield** button (🛡️) in the top header. The red shield banner will appear, protecting your screen and timer from accidental touch or pets throughout the fast.
+
+---
+
+## 🌐 Internationalization & Adding Languages
+
+The application features full multi-language support (i18n) across both the UI and backend error diagnostics.
+- To add a new language (e.g. French, Spanish, Yiddish, Russian):
+  1. Copy [`public/locales/template.json`](public/locales/template.json) to `public/locales/<lang_code>.json`.
+  2. Translate the string values and set the `_meta` field.
+  3. **Done!** The system automatically discovers the new language and auto-populates all language selector dropdowns without modifying any code.
+- For complete step-by-step instructions, see the [**Translation Guide (TRANSLATION_GUIDE.md)**](TRANSLATION_GUIDE.md).
 
 ---
 

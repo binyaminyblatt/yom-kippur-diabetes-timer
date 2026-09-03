@@ -99,19 +99,20 @@ class LibreService {
 
   getTrendInfo(arrowCode) {
     // 1: Falling fast, 2: Falling, 3: Steady, 4: Rising, 5: Rising fast
+    const t = (k, fallback) => (typeof window !== 'undefined' && window.i18n ? window.i18n.t(k) : fallback);
     switch (parseInt(arrowCode, 10)) {
       case 1:
-        return { symbol: '↓↓', text: 'Falling rapidly', className: 'trend-falling-fast', angle: 90 };
+        return { symbol: '↓↓', text: t('cgm.trend.fallingQuickly', 'Falling rapidly'), className: 'trend-falling-fast', angle: 90 };
       case 2:
-        return { symbol: '↓', text: 'Falling', className: 'trend-falling', angle: 45 };
+        return { symbol: '↓', text: t('cgm.trend.falling', 'Falling'), className: 'trend-falling', angle: 45 };
       case 3:
-        return { symbol: '→', text: 'Steady', className: 'trend-steady', angle: 0 };
+        return { symbol: '→', text: t('cgm.trend.steady', 'Steady'), className: 'trend-steady', angle: 0 };
       case 4:
-        return { symbol: '↑', text: 'Rising', className: 'trend-rising', angle: -45 };
+        return { symbol: '↑', text: t('cgm.trend.rising', 'Rising'), className: 'trend-rising', angle: -45 };
       case 5:
-        return { symbol: '↑↑', text: 'Rising rapidly', className: 'trend-rising-fast', angle: -90 };
+        return { symbol: '↑↑', text: t('cgm.trend.risingQuickly', 'Rising rapidly'), className: 'trend-rising-fast', angle: -90 };
       default:
-        return { symbol: '→', text: 'Steady', className: 'trend-steady', angle: 0 };
+        return { symbol: '→', text: t('cgm.trend.steady', 'Steady'), className: 'trend-steady', angle: 0 };
     }
   }
 
@@ -161,19 +162,25 @@ class LibreService {
 
   async login() {
     try {
-      this.onStatusChange({ isConnected: false, isDemo: false, statusText: 'Connecting to LibreLinkUp...' });
+      const curLang = (typeof window !== 'undefined' && window.i18n) ? window.i18n.getCurrentLanguage() : 'en';
+      this.onStatusChange({
+        isConnected: false,
+        isDemo: false,
+        statusText: curLang === 'he' ? 'מתחבר ל-LibreLinkUp...' : 'Connecting to LibreLinkUp...'
+      });
       const resp = await fetch('/api/libre/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept-Language': curLang },
         body: JSON.stringify({
           email: this.email,
           password: this.password,
-          region: this.region
+          region: this.region,
+          lang: curLang
         })
       });
       const data = await resp.json();
       if (!data.success) {
-        const errorMsg = data.error || 'Login failed';
+        const errorMsg = data.error || (curLang === 'he' ? 'ההתחברות נכשלה' : 'Login failed');
         const fullMsg = data.suggestion ? `${errorMsg} (${data.suggestion})` : errorMsg;
         throw new Error(fullMsg);
       }
@@ -183,7 +190,7 @@ class LibreService {
       this.accountId = data.accountId;
       this.baseUrl = data.baseUrl;
       this.patientId = data.patientId;
-      this.patientName = data.patientName || 'Patient';
+      this.patientName = data.patientName || (curLang === 'he' ? 'מטופל' : 'Patient');
       this.isConnected = true;
 
       this.onStatusChange({
@@ -194,7 +201,7 @@ class LibreService {
       return true;
     } catch (err) {
       console.error('[LibreLinkUp] Login error:', err);
-      this.onError(`LibreLinkUp Error: ${err.message}`);
+      this.onError(`LibreLinkUp: ${err.message}`);
       return false;
     }
   }
@@ -206,9 +213,10 @@ class LibreService {
     if (!this.token || !this.patientId) return;
 
     try {
+      const curLang = (typeof window !== 'undefined' && window.i18n) ? window.i18n.getCurrentLanguage() : 'en';
       const resp = await fetch('/api/libre/readings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept-Language': curLang },
         body: JSON.stringify({
           token: this.token,
           accountId: this.accountId,
@@ -217,7 +225,8 @@ class LibreService {
           region: this.region,
           email: this.email,
           password: this.password,
-          userId: this.userId
+          userId: this.userId,
+          lang: curLang
         })
       });
       const res = await resp.json();

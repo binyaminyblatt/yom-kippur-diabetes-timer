@@ -38,6 +38,7 @@
     "axios": "^1.7.9",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "i18next": "^24.2.3",
     "kosher-zmanim": "^0.9.0",
     "librelinkup-api-client": "^1.0.2"
   },
