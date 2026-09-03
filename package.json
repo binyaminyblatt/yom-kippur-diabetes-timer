@@ -48,6 +48,7 @@
     "librelinkup-api-client": "^1.0.2"
   },
   "devDependencies": {
+    "@actions/artifact": "^2.2.0",
     "concurrently": "^9.1.2",
     "electron": "^34.2.0",
     "electron-builder": "^25.1.8",
@@ -84,9 +85,10 @@
     },
     "win": {
       "target": [
+        "msi",
+        "nsis",
         "zip",
-        "dir",
-        "msi"
+        "dir"
       ]
     },
     "linux": {
