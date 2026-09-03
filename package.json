@@ -50,7 +50,7 @@
   "devDependencies": {
     "@actions/artifact": "^2.2.0",
     "concurrently": "^9.1.2",
-    "electron": "^34.2.0",
+    "electron": "^39.8.10",
     "electron-builder": "^25.1.8",
     "playwright": "^1.62.1",
     "sharp": "^0.35.4"
