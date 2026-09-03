@@ -243,6 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedExtra !== null) {
       extraMinutes = parseInt(savedExtra, 10);
       selectFastEndExtra.value = String(extraMinutes);
+      if (window.CustomSelect) window.CustomSelect.sync(selectFastEndExtra);
     }
   } catch (e) {}
 
@@ -864,6 +865,10 @@ document.addEventListener('DOMContentLoaded', () => {
     audio.setSoundProfile(profileKey);
     selectQuickSoundProfile.value = profileKey;
     selectModalSoundProfile.value = profileKey;
+    if (window.CustomSelect) {
+      window.CustomSelect.sync(selectQuickSoundProfile);
+      window.CustomSelect.sync(selectModalSoundProfile);
+    }
 
     if (profileKey === 'zen-bowl') {
       trackAToneLabel.textContent = 'Warm Meditation Bowl (C4)';
@@ -976,6 +981,10 @@ document.addEventListener('DOMContentLoaded', () => {
       liveLibreFields.classList.add('hidden');
     } else {
       liveLibreFields.classList.remove('hidden');
+    }
+
+    if (window.CustomSelect) {
+      window.CustomSelect.syncAll();
     }
 
     settingsModal.classList.remove('hidden');

@@ -72,6 +72,9 @@ class I18nManager {
         select.appendChild(opt);
       });
       select.value = this.currentLanguage;
+      if (typeof CustomSelect !== 'undefined') {
+        CustomSelect.sync(select);
+      }
     });
   }
 
@@ -339,6 +342,11 @@ class I18nManager {
     langSelects.forEach(select => {
       select.value = this.currentLanguage;
     });
+
+    // 8. Synchronize all CustomSelect components
+    if (typeof CustomSelect !== 'undefined') {
+      CustomSelect.syncAll();
+    }
   }
 }
 
