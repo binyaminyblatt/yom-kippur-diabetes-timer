@@ -1,3 +1,6 @@
+// Initialize System CA Trust Store immediately for SSL inspection filter support
+require('./system-ca').initSystemCA();
+
 const { app, BrowserWindow, powerSaveBlocker, Menu } = require('electron');
 const path = require('path');
 

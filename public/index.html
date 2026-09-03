@@ -7,12 +7,8 @@
   <title>Yom Kippur Diabetes Timer & LibreLinkUp CGM</title>
   <meta name="description"
     content="Yom Kippur Achila l'Shiurim Eating Interval Timer with LibreLinkUp Continuous Glucose Monitor and Airplane Bing-Bong Chimes">
-  <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&family=Rubik:wght@300;400;500;600;700;800;900&display=swap"
-    rel="stylesheet">
+  <!-- Internalized Local Fonts (Zero external network requests) -->
+  <link rel="stylesheet" href="fonts.css">
   <link rel="stylesheet" href="styles.css?v=2">
 </head>
 
@@ -645,12 +641,24 @@
 
               <div class="libre-connection-actions">
                 <button type="button" id="btnTestLibreLogin" class="btn-secondary">
-                  <span id="testLoginBtnSpinner" class="btn-spinner hidden"></span>
-                  <span id="testLoginBtnText" data-i18n="settings.cgm.testConnection">Test Libre Connection</span>
+                  <span id="testLibreBtnText" data-i18n="settings.cgm.testConnection">Test Libre Connection</span>
                 </button>
-                <div id="libreLoginStatusMsg" class="connection-status-msg hidden"></div>
               </div>
 
+              <!-- Diagnostic Feedback Card -->
+              <div id="libreTestFeedback" class="libre-test-feedback hidden">
+                <div class="libre-feedback-header">
+                  <span id="libreTestStatusBadge" class="libre-badge"></span>
+                  <span id="libreTestStatusTitle" class="libre-feedback-title"></span>
+                </div>
+                <div id="libreTestMessage" class="libre-feedback-msg"></div>
+                <div id="libreTestSuggestionBox" class="libre-suggestion-box hidden">
+                  <span class="suggestion-heading" data-i18n="settings.cgm.suggestionHeading">Recommendation:</span>
+                  <span id="libreTestSuggestion"></span>
+                </div>
+              </div>
+
+              <!-- Diagnostic API Logs Console -->
               <div class="libre-logs-wrapper">
                 <button type="button" id="btnToggleLibreLogs" class="btn-text-toggle">
                   <span id="libreLogsToggleText" data-i18n="settings.cgm.showLogs">Show Diagnostic API Logs</span>

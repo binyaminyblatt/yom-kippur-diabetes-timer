@@ -463,6 +463,21 @@ async function testServerEndpoints() {
     assert.ok(zmanimHebrew.data.locationName.includes('ירושלים'), 'Location name must be localized in Hebrew');
     console.log(`✓ Localized Hebrew Zmanim calculated without errors: ${zmanimHebrew.data.locationName} (${zmanimHebrew.data.hebrewDateStr})`);
 
+    // Test /api/system-ca/status endpoint
+    const caResp = await fetchJson('/api/system-ca/status');
+    assert.strictEqual(caResp.status, 200, '/api/system-ca/status must return 200');
+    assert.strictEqual(caResp.data.success, true);
+    assert.ok(typeof caResp.data.activeCount === 'number', 'activeCount must be a number');
+    assert.ok(caResp.data.activeCount > 0, 'Must have at least 1 active certificate');
+    console.log(`✓ /api/system-ca/status returned ${caResp.data.activeCount} trusted root/intermediate certificates`);
+
+    // Test /api/health includes System CA status
+    const healthResp = await fetchJson('/api/health');
+    assert.strictEqual(healthResp.status, 200);
+    assert.ok(healthResp.data.systemCA, 'Health check must include systemCA object');
+    assert.ok(healthResp.data.systemCA.totalUniqueCount > 0, 'Health check must report loaded CA certs');
+    console.log(`✓ /api/health reports systemCA operational: ${healthResp.data.systemCA.totalUniqueCount} certificates from ${healthResp.data.systemCA.platform}`);
+
     // Test /api/languages endpoint
     const langResp = await fetchJson('/api/languages');
     assert.strictEqual(langResp.status, 200, '/api/languages must return 200');

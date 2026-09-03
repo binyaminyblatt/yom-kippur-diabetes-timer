@@ -1163,43 +1163,89 @@ document.addEventListener('DOMContentLoaded', () => {
   const libreLogToggleArrow = document.getElementById('libreLogToggleArrow');
   const libreLogsConsole = document.getElementById('libreLogsConsole');
 
+  async function fetchAndRenderDiagnosticLogs() {
+    if (!libreLogsConsole) return;
+    try {
+      const resp = await fetch('/api/libre/logs');
+      const data = await resp.json();
+      if (data && data.success && Array.isArray(data.logs) && data.logs.length > 0) {
+        const formatted = data.logs.map(entry => {
+          if (typeof entry === 'string') return entry;
+          const time = entry.formattedTime || (entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : '');
+          const icon = entry.type === 'SUCCESS' ? '✓' : (entry.type === 'ERROR' ? '❌' : (entry.type === 'WARN' ? '⚠️' : '📡'));
+          return `${time} ${icon} [${entry.endpoint || 'CGM'}] ${entry.details || ''}`;
+        }).join('\n');
+        libreLogsConsole.textContent = formatted;
+        libreLogsConsole.scrollTop = libreLogsConsole.scrollHeight;
+      } else if (!libreLogsConsole.textContent.trim()) {
+        libreLogsConsole.textContent = window.i18n ? window.i18n.t('settings.cgm.noLogsYet') : 'No API requests logged yet.';
+      }
+    } catch (e) {}
+  }
+
+  function setLogsConsoleVisibility(show) {
+    if (!libreLogsConsole) return;
+    if (show) {
+      libreLogsConsole.classList.remove('hidden');
+      if (libreLogsToggleText) libreLogsToggleText.textContent = window.i18n ? window.i18n.t('settings.cgm.hideLogs') : 'Hide Diagnostic API Logs';
+      if (libreLogToggleArrow) libreLogToggleArrow.textContent = '▲';
+    } else {
+      libreLogsConsole.classList.add('hidden');
+      if (libreLogsToggleText) libreLogsToggleText.textContent = window.i18n ? window.i18n.t('settings.cgm.showLogs') : 'Show Diagnostic API Logs';
+      if (libreLogToggleArrow) libreLogToggleArrow.textContent = '▼';
+    }
+  }
+
   if (btnToggleLibreLogs && libreLogsConsole) {
-    btnToggleLibreLogs.addEventListener('click', () => {
-      const isHidden = libreLogsConsole.classList.toggle('hidden');
-      if (libreLogsToggleText) libreLogsToggleText.textContent = isHidden ? 'Show Diagnostic API Logs' : 'Hide Diagnostic API Logs';
-      if (libreLogToggleArrow) libreLogToggleArrow.textContent = isHidden ? '▼' : '▲';
+    btnToggleLibreLogs.addEventListener('click', async () => {
+      const willBeVisible = libreLogsConsole.classList.contains('hidden');
+      setLogsConsoleVisibility(willBeVisible);
+      if (willBeVisible) {
+        await fetchAndRenderDiagnosticLogs();
+      }
     });
   }
 
   if (btnTestLibreLogin) {
     btnTestLibreLogin.addEventListener('click', async () => {
-      const email = inputLibreEmail.value.trim();
-      const password = inputLibrePassword.value.trim();
-      const region = selectLibreRegion.value;
+      const email = inputLibreEmail ? inputLibreEmail.value.trim() : '';
+      const password = inputLibrePassword ? inputLibrePassword.value.trim() : '';
+      const region = selectLibreRegion ? selectLibreRegion.value : 'US';
 
       if (!email || !password) {
-        libreTestFeedback.classList.remove('hidden', 'feedback-success', 'feedback-pending');
-        libreTestFeedback.classList.add('feedback-error');
-        libreTestStatusBadge.className = 'libre-badge badge-error';
-        libreTestStatusBadge.textContent = 'Missing Info';
-        libreTestStatusTitle.textContent = 'Email & Password Required';
-        libreTestMessage.textContent = 'Please enter both your LibreLinkUp follower email and password above.';
-        libreTestSuggestionBox.classList.remove('hidden');
-        libreTestSuggestion.textContent = 'Use the follower account created in LibreLinkUp. If you do not have one yet, invite a follower in the main Libre 2 / Libre 3 app.';
+        if (libreTestFeedback) {
+          libreTestFeedback.classList.remove('hidden', 'feedback-success', 'feedback-pending');
+          libreTestFeedback.classList.add('feedback-error');
+        }
+        if (libreTestStatusBadge) {
+          libreTestStatusBadge.className = 'libre-badge badge-error';
+          libreTestStatusBadge.textContent = 'Missing Info';
+        }
+        if (libreTestStatusTitle) libreTestStatusTitle.textContent = 'Email & Password Required';
+        if (libreTestMessage) libreTestMessage.textContent = 'Please enter both your LibreLinkUp follower email and password above.';
+        if (libreTestSuggestionBox) libreTestSuggestionBox.classList.remove('hidden');
+        if (libreTestSuggestion) libreTestSuggestion.textContent = 'Use the follower account created in LibreLinkUp. If you do not have one yet, invite a follower in the main Libre 2 / Libre 3 app.';
         return;
       }
 
       const curLang = window.i18n ? window.i18n.getCurrentLanguage() : 'en';
       btnTestLibreLogin.disabled = true;
       if (testLibreBtnText) testLibreBtnText.textContent = window.i18n ? window.i18n.t('settings.cgm.testBtnTesting') : 'Testing Connection...';
-      libreTestFeedback.classList.remove('hidden', 'feedback-success', 'feedback-error');
-      libreTestFeedback.classList.add('feedback-pending');
-      libreTestStatusBadge.className = 'libre-badge badge-pending';
-      libreTestStatusBadge.textContent = window.i18n ? window.i18n.t('settings.cgm.testingBadge') : 'Testing...';
-      libreTestStatusTitle.textContent = window.i18n ? window.i18n.t('settings.cgm.testingTitle') : 'Authenticating with Abbott Cloud...';
-      libreTestMessage.textContent = window.i18n ? window.i18n.t('settings.cgm.testingMsg', { region }) : `Connecting to ${region} regional endpoint and verifying follower credentials...`;
-      libreTestSuggestionBox.classList.add('hidden');
-      if (libreLogsConsole) libreLogsConsole.textContent = curLang === 'he' ? 'מתחבר...' : 'Connecting...';
+      
+      if (libreTestFeedback) {
+        libreTestFeedback.classList.remove('hidden', 'feedback-success', 'feedback-error');
+        libreTestFeedback.classList.add('feedback-pending');
+      }
+      if (libreTestStatusBadge) {
+        libreTestStatusBadge.className = 'libre-badge badge-pending';
+        libreTestStatusBadge.textContent = window.i18n ? window.i18n.t('settings.cgm.testingBadge') : 'Testing...';
+      }
+      if (libreTestStatusTitle) libreTestStatusTitle.textContent = window.i18n ? window.i18n.t('settings.cgm.testingTitle') : 'Authenticating with Abbott Cloud...';
+      if (libreTestMessage) libreTestMessage.textContent = window.i18n ? window.i18n.t('settings.cgm.testingMsg', { region }) : `Connecting to ${region} regional endpoint and verifying follower credentials...`;
+      if (libreTestSuggestionBox) libreTestSuggestionBox.classList.add('hidden');
+      
+      setLogsConsoleVisibility(true);
+      if (libreLogsConsole) libreLogsConsole.textContent = curLang === 'he' ? 'מתחבר לשרת...' : 'Connecting to LibreLinkUp server...';
 
       try {
         const resp = await fetch('/api/libre/test-connection', {
@@ -1211,49 +1257,64 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (data.logs && Array.isArray(data.logs) && libreLogsConsole) {
           libreLogsConsole.textContent = data.logs.join('\n');
+          libreLogsConsole.scrollTop = libreLogsConsole.scrollHeight;
         }
 
         if (data.success) {
-          libreTestFeedback.classList.remove('feedback-pending', 'feedback-error');
-          libreTestFeedback.classList.add('feedback-success');
-          libreTestStatusBadge.className = 'libre-badge badge-success';
-          libreTestStatusBadge.textContent = window.i18n ? window.i18n.t('settings.cgm.connectedBadge') : 'Connected ✓';
+          if (libreTestFeedback) {
+            libreTestFeedback.classList.remove('feedback-pending', 'feedback-error');
+            libreTestFeedback.classList.add('feedback-success');
+          }
+          if (libreTestStatusBadge) {
+            libreTestStatusBadge.className = 'libre-badge badge-success';
+            libreTestStatusBadge.textContent = window.i18n ? window.i18n.t('settings.cgm.connectedBadge') : 'Connected ✓';
+          }
 
           if (data.hasPatient) {
-            libreTestStatusTitle.textContent = curLang === 'he' ? `מחובר ל-"${data.patientName}"` : `Connected to "${data.patientName}"`;
-            libreTestMessage.innerHTML = window.i18n
-              ? window.i18n.t('settings.cgm.successMsg', { val: data.latestGlucose, count: data.historyPointsCount || 0 })
-              : `Successfully authenticated! <strong>Current Glucose: ${data.latestGlucose} mg/dL</strong> (${data.historyPointsCount || 0} graph points loaded). Sensor is online.`;
-            libreTestSuggestionBox.classList.add('hidden');
+            if (libreTestStatusTitle) libreTestStatusTitle.textContent = curLang === 'he' ? `מחובר ל-"${data.patientName}"` : `Connected to "${data.patientName}"`;
+            if (libreTestMessage) {
+              libreTestMessage.innerHTML = window.i18n
+                ? window.i18n.t('settings.cgm.successMsg', { val: data.latestGlucose, count: data.historyPointsCount || 0 })
+                : `Successfully authenticated! <strong>Current Glucose: ${data.latestGlucose} mg/dL</strong> (${data.historyPointsCount || 0} graph points loaded). Sensor is online.`;
+            }
+            if (libreTestSuggestionBox) libreTestSuggestionBox.classList.add('hidden');
           } else {
-            libreTestStatusTitle.textContent = window.i18n ? window.i18n.t('settings.cgm.noPatientTitle') : 'Login Succeeded (No Patient Linked)';
-            libreTestMessage.textContent = data.warning || (curLang === 'he' ? 'ההתחברות הצליחה, אך לא נמצא חיישן מחובר.' : 'Authentication succeeded, but no connected sensor was found.');
-            libreTestSuggestionBox.classList.remove('hidden');
-            libreTestSuggestion.textContent = data.suggestion || (curLang === 'he' ? 'באפליקציית LibreLinkUp בסמארטפון, אשר את הזמנת השיתוף מהאדם העונד את החיישן.' : 'In the LibreLinkUp app, accept the sharing invite from the sensor wearer.');
+            if (libreTestStatusTitle) libreTestStatusTitle.textContent = window.i18n ? window.i18n.t('settings.cgm.noPatientTitle') : 'Login Succeeded (No Patient Linked)';
+            if (libreTestMessage) libreTestMessage.textContent = data.warning || (curLang === 'he' ? 'ההתחברות הצליחה, אך לא נמצא חיישן מחובר.' : 'Authentication succeeded, but no connected sensor was found.');
+            if (libreTestSuggestionBox) libreTestSuggestionBox.classList.remove('hidden');
+            if (libreTestSuggestion) libreTestSuggestion.textContent = data.suggestion || (curLang === 'he' ? 'באפליקציית LibreLinkUp בסמארטפון, אשר את הזמנת השיתוף מהאדם העונד את החיישן.' : 'In the LibreLinkUp app, accept the sharing invite from the sensor wearer.');
           }
         } else {
-          libreTestFeedback.classList.remove('feedback-pending', 'feedback-success');
-          libreTestFeedback.classList.add('feedback-error');
-          libreTestStatusBadge.className = 'libre-badge badge-error';
-          libreTestStatusBadge.textContent = window.i18n ? window.i18n.t('settings.cgm.failedBadge') : 'Login Failed ❌';
-          libreTestStatusTitle.textContent = data.errorTitle || (curLang === 'he' ? 'שגיאת אימות' : 'Authentication Error');
-          libreTestMessage.textContent = data.error || (curLang === 'he' ? 'ההתחברות ל-LibreLinkUp נכשלה.' : 'Failed to authenticate with LibreLinkUp.');
+          if (libreTestFeedback) {
+            libreTestFeedback.classList.remove('feedback-pending', 'feedback-success');
+            libreTestFeedback.classList.add('feedback-error');
+          }
+          if (libreTestStatusBadge) {
+            libreTestStatusBadge.className = 'libre-badge badge-error';
+            libreTestStatusBadge.textContent = window.i18n ? window.i18n.t('settings.cgm.failedBadge') : 'Login Failed ❌';
+          }
+          if (libreTestStatusTitle) libreTestStatusTitle.textContent = data.errorTitle || (curLang === 'he' ? 'שגיאת אימות' : 'Authentication Error');
+          if (libreTestMessage) libreTestMessage.textContent = data.error || (curLang === 'he' ? 'ההתחברות ל-LibreLinkUp נכשלה.' : 'Failed to authenticate with LibreLinkUp.');
 
-          if (data.suggestion) {
+          if (data.suggestion && libreTestSuggestionBox && libreTestSuggestion) {
             libreTestSuggestionBox.classList.remove('hidden');
             libreTestSuggestion.textContent = data.suggestion;
-          } else {
+          } else if (libreTestSuggestionBox) {
             libreTestSuggestionBox.classList.add('hidden');
           }
         }
       } catch (netErr) {
-        libreTestFeedback.classList.remove('feedback-pending', 'feedback-success');
-        libreTestFeedback.classList.add('feedback-error');
-        libreTestStatusBadge.className = 'libre-badge badge-error';
-        libreTestStatusBadge.textContent = window.i18n ? window.i18n.t('settings.cgm.netErrorBadge') : 'Network Error';
-        libreTestStatusTitle.textContent = window.i18n ? window.i18n.t('settings.cgm.netErrorTitle') : 'Could Not Contact Local Backend';
-        libreTestMessage.textContent = netErr.message || (curLang === 'he' ? 'הבקשה נכשלה' : 'Request failed');
-        libreTestSuggestionBox.classList.add('hidden');
+        if (libreTestFeedback) {
+          libreTestFeedback.classList.remove('feedback-pending', 'feedback-success');
+          libreTestFeedback.classList.add('feedback-error');
+        }
+        if (libreTestStatusBadge) {
+          libreTestStatusBadge.className = 'libre-badge badge-error';
+          libreTestStatusBadge.textContent = window.i18n ? window.i18n.t('settings.cgm.netErrorBadge') : 'Network Error';
+        }
+        if (libreTestStatusTitle) libreTestStatusTitle.textContent = window.i18n ? window.i18n.t('settings.cgm.netErrorTitle') : 'Could Not Contact Local Backend';
+        if (libreTestMessage) libreTestMessage.textContent = netErr.message || (curLang === 'he' ? 'הבקשה נכשלה' : 'Request failed');
+        if (libreTestSuggestionBox) libreTestSuggestionBox.classList.add('hidden');
       } finally {
         btnTestLibreLogin.disabled = false;
         if (testLibreBtnText) testLibreBtnText.textContent = window.i18n ? window.i18n.t('settings.cgm.testBtnDefault') : 'Test & Verify Libre Connection';

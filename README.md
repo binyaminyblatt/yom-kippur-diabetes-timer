@@ -123,6 +123,79 @@ npm start
 
 ---
 
+## 🛡️ Filtered Internet & Firewall Configuration (Kosher Filter Allowlist)
+
+If you are running this application on a computer connected to a filtered internet provider or proxy service (such as **NetFree / נטפרי**, **NetSpark / נטספארק**, **Techloq**, **Meshimer / משומר**, **Internet Rimon / רימון**, or a corporate firewall), **all fonts, sounds, zmanim calculations, and UI assets are 100% internalized and self-contained locally**.
+
+**The ONLY external connection the application makes is to Abbott's LibreLinkUp cloud API:**
+
+### 1. 🩸 LibreLinkUp CGM Cloud API (The Only External Server Required)
+To allow the local server to fetch real-time glucose readings from Abbott's cloud servers:
+
+| Domain / URL Pattern | Region / Purpose | Notes |
+|---|---|---|
+| `*.libreview.io` | **All Regions (Recommended)** | Wildcard rule covering all regional Abbott API servers |
+| `api-eu.libreview.io` | **Europe, Israel, UK, South Africa** | Primary endpoint for Israeli & European Libre accounts |
+| `api-us.libreview.io` | **United States** | Primary endpoint for US Libre accounts |
+| `api.libreview.io` | **Global** | Global fallback endpoint |
+| `api-de.libreview.io` | **Germany** | German regional endpoint |
+| `api-fr.libreview.io` | **France** | French regional endpoint |
+| `api-jp.libreview.io` | **Japan** | Japanese regional endpoint |
+| `api-ap.libreview.io` | **Asia Pacific / Australia** | Asia-Pacific regional endpoint |
+| `api-ca.libreview.io` | **Canada** | Canadian regional endpoint |
+| `api-ae.libreview.io` | **UAE / Middle East** | UAE regional endpoint |
+| `librelinkup.com` | **Account Setup / Verification** | For LibreLinkUp account creation and password configuration |
+
+---
+
+### 2. 🔒 Automatic System CA Trust Store & SSL Inspection Support
+Many filtered internet providers (e.g. NetFree, Techloq, NetSpark, Meshimer) use SSL inspection to analyze web traffic, requiring a custom root certificate on your computer.
+
+This application includes a **built-in Native System CA loader** (`system-ca.js`) that automatically imports and trusts all certificates from your operating system:
+- **Windows**: Automatically reads all Root and Intermediate CAs from the Windows Certificate Store (`Cert:\LocalMachine\Root`, `Cert:\CurrentUser\Root`, and `CA` stores).
+- **macOS**: Automatically reads all trusted root certificates from the macOS System and Login Keychains via `/usr/bin/security`.
+- **Linux**: Automatically discovers and loads system CA bundles (`/etc/ssl/certs/ca-certificates.crt`, `/etc/pki/tls/certs/ca-bundle.crt`, etc.).
+- **Universal Custom Certificate Drop-in (`certs/` directory)**: You can drop certificates in **ANY format** directly into a `certs/` folder in the project root:
+  - ✅ **PEM / Base64** (`.pem`, `.crt`, `.cer`, `.txt`, `.ca-bundle`)
+  - ✅ **Binary DER** (`.der`, `.cer`, `.crt`)
+  - ✅ **PKCS#7 / CMS Bundles** (`.p7b`, `.p7c`, `.p7s`)
+  - ✅ **PKCS#12 / PFX Stores** (`.pfx`, `.p12`)
+  - ✅ **Raw Base64 without headers**
+  - Or set the `NODE_EXTRA_CA_CERTS` / `SSL_CERT_FILE` environment variable.
+
+> [!TIP]
+> **Zero Configuration**: If your filter's security certificate is already installed on your computer, the application automatically loads and applies it on startup. If not, just drop the certificate file into the `./certs` folder.
+
+---
+
+### 3. 🎨 100% Internalized Local Fonts (Zero External Font Requests)
+All typography (`Outfit`, `Heebo`, `Rubik`, `JetBrains Mono`) is pre-bundled locally within the application in `public/fonts/` using WOFF2 format. 
+- **Zero requests** are made to `fonts.googleapis.com` or `fonts.gstatic.com`.
+- Works instantly in completely offline environments and behind strict kosher filters without allowlisting font domains.
+
+---
+
+### 4. 💻 Localhost & Internal Loopback (Local UI Communication)
+The frontend web UI communicates with the local Express backend running on the same machine:
+
+| Address | Port | Purpose |
+|---|---|---|
+| `http://localhost:3000` (or `127.0.0.1:3000`) | `3000` (or fallback `3001`–`3010`) | UI to backend Express communication |
+
+Ensure your local firewall or filter software does not block or intercept local loopback traffic (`127.0.0.1` / `localhost`).
+
+---
+
+### 5. 📴 100% Offline Core Features (No Internet Required)
+The following core features operate **entirely offline** without any internet access:
+- ⏱️ **Dual-Track Eating Interval Timer ($T$ & $T/2$)**: Runs 100% locally on your computer.
+- 🔔 **Synthesized Audio Chimes**: Dynamically generated via the Web Audio API without downloading external sound files.
+- 🎨 **Typography & Design System**: 100% bundled locally in `public/fonts/`.
+- 🕯️ **Zmanim Calculations**: Computed mathematically using the embedded `kosher-zmanim` engine.
+- 🌐 **Multi-Language Dictionaries**: Stored locally on disk in `public/locales/`.
+
+---
+
 ## 🧪 Testing
 
 ### Automated Unit Tests

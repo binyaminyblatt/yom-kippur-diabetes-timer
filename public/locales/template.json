@@ -288,6 +288,9 @@
       "demoTesting": "(Offline testing)",
       "testConnection": "Test Libre Connection",
       "showLogs": "Show Diagnostic API Logs",
+      "hideLogs": "Hide Diagnostic API Logs",
+      "suggestionHeading": "Recommendation:",
+      "noLogsYet": "No API requests logged yet.",
       "testingTitle": "Authenticating with Abbott Cloud...",
       "testingMsg": "Connecting to {{region}} regional endpoint and verifying follower credentials...",
       "testingBadge": "Testing...",
@@ -361,6 +364,9 @@
       "networkTimeoutTitle": "Network / Connection Timeout",
       "networkTimeoutMsg": "Could not connect to Abbott LibreLinkUp servers.",
       "networkTimeoutSuggestion": "Please check your computer internet connection and verify that api-us.libreview.io or api-eu.libreview.io is accessible.",
+      "sslCertificateErrorTitle": "SSL / Security Certificate Verification Error",
+      "sslCertificateErrorMsg": "Failed to establish a secure SSL connection to Abbott servers.",
+      "sslCertificateErrorSuggestion": "If using a filtered internet connection (such as NetFree, Techloq, NetSpark, or Meshimer), ensure your filter's root security certificate is installed in your operating system's trust store or place the certificate file in the application's \"certs/\" folder.",
       "generalErrorTitle": "Connection Error",
       "generalErrorMsg": "Failed to communicate with LibreLinkUp.",
       "generalErrorSuggestion": "Check your credentials and region settings or inspect the detailed connection log below."
@@ -372,6 +378,7 @@
       "clientLibraryError": "librelinkup-api-client library could not be loaded."
     },
     "logs": {
+      "systemCaActive": "🛡️ System CA Trust Store: Loaded {{count}} trusted root/intermediate certificates (SSL Inspection Ready)",
       "validationFailed": "❌ Validation failed: Email and password are required.",
       "testInit": "🚀 Initializing LibreLinkUp connection test for account: {{email}} (Region: {{region}})",
       "targetEndpoint": "🌐 Target endpoint: {{url}}",

@@ -285,9 +285,12 @@
       "enableHint": "בטל סימון זה אם אינך עונד חיישן כדי שהתראות סוכר לא יושמעו.",
       "useDemo": "השתמש במצב הדמיה (דמו)",
       "demoTesting": "(בדיקה ללא אינטרנט)",
-      "testConnection": "בדוק התחברות ל-Libre",
+      "testConnection": "בדוק חיבור ל-Libre",
       "showLogs": "הצג יומן רישום דיאגנוסטי",
-      "testingTitle": "מאמת נתונים מול שרתי אבוט...",
+      "hideLogs": "הסתר יומן רישום דיאגנוסטי",
+      "suggestionHeading": "המלצה לפתרון:",
+      "noLogsYet": "אין עדיין פעילות ביומן הרישום.",
+      "testingTitle": "מאמת נתונים מול ענן אבוט...",
       "testingMsg": "מתחבר לשרת אזורי {{region}} ומאמת פרטי גישה...",
       "testingBadge": "בודק...",
       "connectedBadge": "מחובר ✓",
@@ -360,6 +363,9 @@
       "networkTimeoutTitle": "שגיאת רשת / פסק זמן להתחברות",
       "networkTimeoutMsg": "לא ניתן להתחבר לשרתי LibreLinkUp של אבוט.",
       "networkTimeoutSuggestion": "אנא בדוק את חיבור האינטרנט במחשב וודא ששרתי אבוט נגישים.",
+      "sslCertificateErrorTitle": "שגיאת אימות תעודת אבטחה (SSL)",
+      "sslCertificateErrorMsg": "נכשל ניסיון יצירת חיבור SSL מאובטח מול שרתי אבוט.",
+      "sslCertificateErrorSuggestion": "במידה ואתם משתמשים באינטרנט מסונן (כגון נטפרי, נטספארק, Techloq או משומר), ודאו שתעודת האבטחה של הסינון מותקנת כראוי במערכת ההפעלה, או הניחו את קובץ התעודה בתיקיית \"certs/\" של התוכנה.",
       "generalErrorTitle": "שגיאת התחברות",
       "generalErrorMsg": "התקשורת עם שרתי LibreLinkUp נכשלה.",
       "generalErrorSuggestion": "בדוק את פרטי ההתחברות והגדרות האזור או עיין ביומן הרישום המפורט למטה."
@@ -371,6 +377,7 @@
       "clientLibraryError": "ספריית librelinkup-api-client לא נטענה."
     },
     "logs": {
+      "systemCaActive": "🛡️ מאגר תעודות האבטחה של מערכת ההפעלה: נטענו {{count}} תעודות שורש (תמיכה מלאה בסינון רשת)",
       "validationFailed": "❌ האימות נכשל: נדרשים כתובת אימייל וסיסמה.",
       "testInit": "🚀 מאתחל בדיקת חיבור LibreLinkUp עבור: {{email}} (אזור שרת: {{region}})",
       "targetEndpoint": "🌐 כתובת שרת יעד: {{url}}",

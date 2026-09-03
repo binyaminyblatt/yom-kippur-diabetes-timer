@@ -1,3 +1,7 @@
+// Initialize System CA Trust Store immediately to support SSL inspection filters (NetFree, Techloq, NetSpark, Meshimer)
+const { initSystemCA, getSummary: getCaSummary, getLoadedCertificates } = require('./system-ca');
+const caInitResult = initSystemCA();
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -96,7 +100,17 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     uptime: process.uptime(),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    systemCA: getCaSummary()
+  });
+});
+
+// System CA Trust Store Status Endpoint
+app.get('/api/system-ca/status', (req, res) => {
+  res.json({
+    success: true,
+    summary: getCaSummary(),
+    activeCount: getLoadedCertificates().length
   });
 });
 
@@ -299,6 +313,18 @@ function diagnoseLibreProblem(err, rawData = null, region = 'US', lang = 'en') {
   } else if (fullText.includes('too many requests') || fullText.includes('429') || fullText.includes('rate limit')) {
     catKey = 'rateLimited';
     categoryCode = 'RATE_LIMITED';
+  } else if (
+    fullText.includes('unable to get local issuer certificate') ||
+    fullText.includes('self-signed certificate') ||
+    fullText.includes('self signed certificate') ||
+    fullText.includes('cert_untrusted') ||
+    fullText.includes('unable_to_verify_leaf_signature') ||
+    fullText.includes('depth_zero_self_signed_cert') ||
+    fullText.includes('certificate has expired') ||
+    (fullText.includes('ssl') && (fullText.includes('cert') || fullText.includes('handshake') || fullText.includes('tls')))
+  ) {
+    catKey = 'sslCertificateError';
+    categoryCode = 'SSL_CERTIFICATE_ERROR';
   } else if (fullText.includes('enotfound') || fullText.includes('etimedout') || fullText.includes('econnrefused') || fullText.includes('fetch failed')) {
     catKey = 'networkTimeout';
     categoryCode = 'NETWORK_TIMEOUT';
@@ -360,6 +386,8 @@ app.post('/api/libre/test-connection', async (req, res) => {
 
     const maskedEmail = email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
     addLog(getServerText('server.logs.testInit', lang, { email: maskedEmail, region }));
+    const caSummary = getCaSummary();
+    addLog(getServerText('server.logs.systemCaActive', lang, { count: caSummary.totalUniqueCount || caSummary.systemCount || 0 }));
     logGlucoseActivity('/api/libre/test-connection', 'INFO', `Starting test connection for: ${maskedEmail} (Region: ${region})`);
 
     const ClientClass = await getLibreLinkClient();
