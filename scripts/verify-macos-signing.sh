@@ -51,6 +51,43 @@ if [ "$VERIFIED" = "true" ]; then
   echo "Certificate Details:"
   openssl pkcs12 -in "$P12_PATH" -passin "pass:$CSC_KEY_PASSWORD" -nokeys 2>/dev/null | openssl x509 -noout -subject -issuer -dates 2>/dev/null || true
   echo "===================================================="
+
+  # If running on macOS runner, configure & unlock keychain to prevent security set-key-partition-list failures
+  if [ "$(uname)" = "Darwin" ]; then
+    echo "Configuring macOS CI Keychain for codesign access..."
+    KEYCHAIN_DIR="${RUNNER_TEMP:-$TMP_DIR}"
+    KEYCHAIN_PATH="$KEYCHAIN_DIR/app-signing.keychain"
+    KEYCHAIN_PASS="temp_ci_keychain_password"
+
+    # Remove existing build keychain if present
+    security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+
+    # Create and unlock new keychain
+    security create-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+    security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+    security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+
+    # Import the certificate into keychain with -A to allow access for all tools
+    security import "$P12_PATH" -k "$KEYCHAIN_PATH" -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productsign -A
+
+    # Set partition list so codesign can access keys without interactive GUI prompts
+    security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASS" "$KEYCHAIN_PATH" 2>/dev/null || true
+
+    # Add to keychain search list and set as default
+    EXISTING_KEYCHAINS=$(security list-keychains -d user 2>/dev/null | tr -d '"' | tr '\n' ' ')
+    if [ -n "$EXISTING_KEYCHAINS" ]; then
+      security list-keychains -d user -s "$KEYCHAIN_PATH" $EXISTING_KEYCHAINS 2>/dev/null || true
+    fi
+    security default-keychain -s "$KEYCHAIN_PATH" 2>/dev/null || true
+    security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+    
+    echo "CSC_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+    echo "CSC_KEYCHAIN_PASSWORD=$KEYCHAIN_PASS" >> "$GITHUB_ENV"
+    echo "CSC_LINK=" >> "$GITHUB_ENV"
+    echo "CSC_KEY_PASSWORD=" >> "$GITHUB_ENV"
+    echo "✓ macOS CI Keychain configured, unlocked, and exported to environment."
+  fi
+
   echo "SIGN_STATUS=signed" >> "$GITHUB_ENV"
   echo "CSC_IDENTITY_AUTO_DISCOVERY=true" >> "$GITHUB_ENV"
 else
