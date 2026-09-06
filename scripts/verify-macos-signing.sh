@@ -83,8 +83,7 @@ if [ "$VERIFIED" = "true" ]; then
     
     echo "CSC_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
     echo "CSC_KEYCHAIN_PASSWORD=$KEYCHAIN_PASS" >> "$GITHUB_ENV"
-    echo "CSC_LINK=" >> "$GITHUB_ENV"
-    echo "CSC_KEY_PASSWORD=" >> "$GITHUB_ENV"
+    echo "CSC_KEY_PASSWORD=$KEYCHAIN_PASS" >> "$GITHUB_ENV"
     echo "✓ macOS CI Keychain configured, unlocked, and exported to environment."
   fi
 
