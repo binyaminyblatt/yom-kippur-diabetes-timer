@@ -56,12 +56,12 @@ jobs:
       fail-fast: false
       matrix:
         build_target:
-          # --- macOS Universal DMG & ZIP ---
-          - id: macos-universal
-            name: "macOS Universal (DMG & ZIP)"
+          # --- macOS Universal DMG ---
+          - id: macos-universal-dmg
+            name: "macOS Universal (DMG)"
             os: macos-latest
             platform: mac
-            builder_cmd: "npx electron-builder --mac dmg zip --universal -c.mac.artifactName='${productName}-${version}-${arch}-${env.SIGN_STATUS}.${ext}' -c.dmg.artifactName='${productName}-${version}-${arch}-${env.SIGN_STATUS}.${ext}'"
+            builder_cmd: "npx electron-builder --mac dmg --universal -c.mac.artifactName='${productName}-${version}-${arch}-${env.SIGN_STATUS}.${ext}' -c.dmg.artifactName='${productName}-${version}-${arch}-${env.SIGN_STATUS}.${ext}'"
             cache_paths: |
               ~/.cache/electron
               ~/.cache/electron-builder
@@ -75,6 +75,24 @@ jobs:
               fi
               node scripts/generate-icons.js
 
+          # --- macOS Universal ZIP ---
+          - id: macos-universal-zip
+            name: "macOS Universal (ZIP)"
+            os: macos-latest
+            platform: mac
+            builder_cmd: "npx electron-builder --mac zip --universal -c.mac.artifactName='${productName}-${version}-${arch}-${env.SIGN_STATUS}.${ext}' -c.dmg.artifactName='${productName}-${version}-${arch}-${env.SIGN_STATUS}.${ext}'"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              if [ -n "$CSC_LINK" ]; then
+                echo "SIGN_STATUS=signed" >> $GITHUB_ENV
+                echo "CSC_IDENTITY_AUTO_DISCOVERY=true" >> $GITHUB_ENV
+              else
+                echo "SIGN_STATUS=unsigned" >> $GITHUB_ENV
+                echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> $GITHUB_ENV
+              fi
+              node scripts/generate-icons.js
           # --- Windows MSI Installer ---
           - id: windows-msi
             name: "Windows (MSI Installer)"
@@ -86,23 +104,34 @@ jobs:
               ~\AppData\Local\electron-builder\Cache
             additional_cmd: "node scripts/generate-icons.js"
 
-          # --- Windows NSIS Setup & Portable ZIP ---
-          - id: windows-nsis-zip
-            name: "Windows (NSIS Setup & Portable ZIP)"
+          # --- Windows NSIS Setup ---
+          - id: windows-nsis
+            name: "Windows (NSIS Setup)"
             os: windows-latest
             platform: win
-            builder_cmd: "npx electron-builder --win nsis zip"
+            builder_cmd: "npx electron-builder --win nsis"
             cache_paths: |
               ~\AppData\Local\electron\Cache
               ~\AppData\Local\electron-builder\Cache
             additional_cmd: "node scripts/generate-icons.js"
 
-          # --- Linux AppImage & DEB ---
-          - id: linux-appimage-deb
-            name: "Linux (AppImage & DEB Package)"
+          # --- Windows Portable ZIP ---
+          - id: windows-zip
+            name: "Windows (Portable ZIP)"
+            os: windows-latest
+            platform: win
+            builder_cmd: "npx electron-builder --win zip"
+            cache_paths: |
+              ~\AppData\Local\electron\Cache
+              ~\AppData\Local\electron-builder\Cache
+            additional_cmd: "node scripts/generate-icons.js"
+
+          # --- Linux AppImage ---
+          - id: linux-appimage
+            name: "Linux (AppImage)"
             os: ubuntu-latest
             platform: linux
-            builder_cmd: "npx electron-builder --linux AppImage deb"
+            builder_cmd: "npx electron-builder --linux AppImage"
             cache_paths: |
               ~/.cache/electron
               ~/.cache/electron-builder
@@ -111,12 +140,40 @@ jobs:
               sudo apt-get install -y libarchive-tools
               node scripts/generate-icons.js
 
-          # --- Linux RPM & Pacman ---
-          - id: linux-rpm-pacman
-            name: "Linux (RPM & Pacman Package)"
+          # --- Linux DEB ---
+          - id: linux-deb
+            name: "Linux (DEB Package)"
             os: ubuntu-latest
             platform: linux
-            builder_cmd: "npx electron-builder --linux rpm pacman"
+            builder_cmd: "npx electron-builder --linux deb"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y libarchive-tools
+              node scripts/generate-icons.js
+
+          # --- Linux RPM ---
+          - id: linux-rpm
+            name: "Linux (RPM)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --linux rpm"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y rpm libarchive-tools
+              node scripts/generate-icons.js
+
+          # --- Linux Pacman ---
+          - id: linux-pacman
+            name: "Linux (Pacman Package)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --linux pacman"
             cache_paths: |
               ~/.cache/electron
               ~/.cache/electron-builder
@@ -164,29 +221,31 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
         run: |
+          if [ -z "$SIGN_STATUS" ]; then
+            if [ -n "$CSC_LINK" ]; then
+              echo "SIGN_STATUS=signed" >> $GITHUB_ENV
+              echo "CSC_IDENTITY_AUTO_DISCOVERY=true" >> $GITHUB_ENV
+            else
+              echo "SIGN_STATUS=unsigned" >> $GITHUB_ENV
+              echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> $GITHUB_ENV
+            fi
+          fi
           ${{ matrix.build_target.additional_cmd }}
 
       - name: Build with Direct Electron-Builder Command
         shell: bash
         run: |
-          ${{ matrix.build_target.builder_cmd }}
+          ${{ matrix.build_target.builder_cmd }} --publish never
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SIGN_STATUS: ${{ env.SIGN_STATUS }}
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ env.CSC_IDENTITY_AUTO_DISCOVERY }}
 
-      - name: Upload Each Built File as Its Own Individual Artifact
-        shell: bash
-        run: |
-          node scripts/upload-individual-artifacts.js
-
-      - name: Fallback Direct Upload of Target Artifacts
+      - name: Upload Target Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.build_target.id }}-artifacts
@@ -237,6 +296,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-assets
+          pattern: '*-artifacts'
+          merge-multiple: true
 
       - name: Display downloaded assets
         run: |
@@ -250,16 +311,16 @@ jobs:
           name: ${{ steps.release_info.outputs.release_title }}
           target_commitish: ${{ github.sha }}
           files: |
-            release-assets/**/*.dmg
-            release-assets/**/*.zip
-            release-assets/**/*.exe
-            release-assets/**/*.msi
-            release-assets/**/*.AppImage
-            release-assets/**/*.deb
-            release-assets/**/*.rpm
-            release-assets/**/*.pacman
-            release-assets/**/*.snap
-            release-assets/**/*.tar.gz
+            release-assets/*.dmg
+            release-assets/*.zip
+            release-assets/*.exe
+            release-assets/*.msi
+            release-assets/*.AppImage
+            release-assets/*.deb
+            release-assets/*.rpm
+            release-assets/*.pacman
+            release-assets/*.snap
+            release-assets/*.tar.gz
           draft: false
           prerelease: false
           generate_release_notes: true
