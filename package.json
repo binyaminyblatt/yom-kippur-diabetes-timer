@@ -1,6 +1,6 @@
 {
   "name": "yom-kippur-diabetes-timer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Yom Kippur Diabetes Eating Interval (Achila l'Shiurim) Timer with LibreLinkUp CGM Integration and Airplane Bing-Bong Chimes",
   "main": "main.js",
   "scripts": {
@@ -33,7 +33,11 @@
     "name": "Yom Kippur Timer",
     "email": "support@yomkippurtimer.local"
   },
-  "homepage": "https://github.com/yom-kippur-timer/yom-kippur-diabetes-timer",
+  "homepage": "https://github.com/binyaminyblatt/yom-kippur-diabetes-timer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/binyaminyblatt/yom-kippur-diabetes-timer.git"
+  },
   "license": "MIT",
   "dependencies": {
     "@fontsource/heebo": "^5.3.0",

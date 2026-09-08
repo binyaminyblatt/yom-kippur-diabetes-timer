@@ -137,7 +137,7 @@
       <div class="lock-shield-icon">🛡️</div>
       <div class="lock-shield-text">
         <strong data-i18n="lockShield.bannerTitle">Cat &amp; Touch Lock Active:</strong>
-        <span data-i18n="lockShield.bannerText">Keyboard and touch controls are shielded. Alarms and chimes run automatically.</span>
+        <span data-i18n="lockShield.bannerText">Blocks keyboard inputs (cats walking on keyboard), toddler clicks, and gestures.</span>
       </div>
       <button id="btnBannerUnlock" class="btn-shield-unlock">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
@@ -435,8 +435,8 @@
         <canvas id="cgmChart" class="cgm-canvas" height="190"></canvas>
       </div>
 
-      <!-- DEMO TEST CONTROLS (Quick triggers for testing alarms) -->
-      <div id="demoControlsSection" class="demo-controls-panel">
+      <!-- DEMO TEST CONTROLS (Quick triggers for testing alarms - Developer Mode Only) -->
+      <div id="demoControlsSection" class="demo-controls-panel dev-only-section hidden">
         <span class="demo-label" data-i18n="cgm.simulatorQuickTests">Simulator Quick Tests:</span>
         <div class="demo-buttons">
           <button class="btn-demo-val" data-val="115" data-trend="3" data-i18n="cgm.demoNormal">Normal (115)</button>
@@ -591,22 +591,23 @@
 
             <div class="form-group">
               <label class="toggle-switch">
-                <input type="checkbox" id="checkCGMEnabled" checked>
+                <input type="checkbox" id="checkCGMEnabled">
                 <span class="toggle-slider"></span>
                 <span class="toggle-text"><strong data-i18n="settings.cgm.enableMonitoring">Enable LibreLinkUp CGM Monitoring &amp; Alarms</strong></span>
               </label>
-              <small class="form-hint" data-i18n="settings.cgm.enableHint">Uncheck this if you are not wearing a sensor so glucose alarms will never sound.</small>
+              <small class="form-hint" data-i18n="settings.cgm.enableHint">Enable this if you are wearing a FreeStyle Libre sensor to receive live glucose readings and alarms.</small>
             </div>
 
-            <div class="form-group">
+            <!-- Developer-Only Demo Simulator Toggle -->
+            <div id="devSettingsGroup" class="form-group dev-only-section hidden">
               <label class="toggle-switch">
-                <input type="checkbox" id="checkDemoMode" checked>
+                <input type="checkbox" id="checkDemoMode">
                 <span class="toggle-slider"></span>
-                <span class="toggle-text"><strong data-i18n="settings.cgm.useDemo">Use Simulated CGM Demo Mode</strong> <span data-i18n="settings.cgm.demoTesting">(Offline testing)</span></span>
+                <span class="toggle-text"><strong data-i18n="settings.cgm.useDemo">Use Simulated CGM Demo Mode</strong> <span data-i18n="settings.cgm.demoTesting">(Developer Testing)</span></span>
               </label>
             </div>
 
-            <div id="liveLibreFields" class="libre-fields-container hidden">
+            <div id="liveLibreFields" class="libre-fields-container">
               <div class="form-group">
                 <label for="inputLibreEmail" data-i18n="settings.cgm.email">LibreLinkUp Email:</label>
                 <input type="email" id="inputLibreEmail" placeholder="your-email@example.com" class="form-input">
@@ -614,7 +615,19 @@
 
               <div class="form-group">
                 <label for="inputLibrePassword" data-i18n="settings.cgm.password">LibreLinkUp Password:</label>
-                <input type="password" id="inputLibrePassword" placeholder="••••••••••••" class="form-input">
+                <div class="password-input-wrapper">
+                  <input type="password" id="inputLibrePassword" placeholder="••••••••••••" class="form-input">
+                  <button type="button" class="btn-toggle-password" data-target="inputLibrePassword" title="Show / Hide Password" aria-label="Show / Hide Password">
+                    <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <svg class="icon-eye-off hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                      <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <div class="form-row-grid">
@@ -669,7 +682,11 @@
             </div>
 
             <!-- Thresholds -->
-            <div class="form-row-grid">
+            <div class="form-row-grid form-row-grid-3">
+              <div class="form-group">
+                <label for="inputTargetUrgentLow" data-i18n="settings.cgm.urgentLowThreshold">Urgent Low Alert Threshold (mg/dL):</label>
+                <input type="number" id="inputTargetUrgentLow" min="40" max="70" value="55" class="form-input">
+              </div>
               <div class="form-group">
                 <label for="inputTargetLow" data-i18n="settings.cgm.lowThreshold">Low Alarm Threshold (mg/dL):</label>
                 <input type="number" id="inputTargetLow" min="50" max="100" value="70" class="form-input">
@@ -688,8 +705,20 @@
             <div class="form-row-grid">
               <div class="form-group">
                 <label for="inputLockPasscode" data-i18n="settings.security.setPin">4-to-6 Digit Lock PIN:</label>
-                <input type="password" id="inputLockPasscode" maxlength="8" placeholder="1234" value="1234"
-                  class="form-input font-mono">
+                <div class="password-input-wrapper">
+                  <input type="password" id="inputLockPasscode" maxlength="8" placeholder="1234" value="1234"
+                    class="form-input font-mono">
+                  <button type="button" class="btn-toggle-password" data-target="inputLockPasscode" title="Show / Hide PIN" aria-label="Show / Hide PIN">
+                    <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <svg class="icon-eye-off hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                      <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                  </button>
+                </div>
                 <small class="form-hint" data-i18n="settings.security.pinHint">Protects timer from cats walking on keyboard or accidental bumps (Default: 1234).</small>
               </div>
               <div class="form-group">
@@ -712,6 +741,31 @@
                 <p class="checklist-promo-desc" data-i18n="checklist.subtitle">Review the pre-fast preparation guide (intervals, audio test, Libre CGM, lock shield).</p>
               </div>
               <button type="button" id="btnOpenChecklistFromSettings" class="btn-secondary btn-sm" data-i18n="checklist.close">View Checklist</button>
+            </div>
+          </div>
+
+          <!-- Section: About & Updates -->
+          <div class="settings-section">
+            <h3 class="section-title">
+              <span class="icon">ℹ️</span>
+              <span data-i18n="settings.about.title">About &amp; Updates</span>
+            </h3>
+            <div class="about-card">
+              <div class="about-info">
+                <span class="about-app-name">Yom Kippur Diabetes Timer</span>
+                <span class="about-app-version">v1.0.1</span>
+              </div>
+              <p class="about-desc" data-i18n="settings.about.desc">Open source software designed for safe fasting and continuous glucose monitoring management on Yom Kippur.</p>
+              <div class="about-actions">
+                <a href="https://github.com/binyaminyblatt/yom-kippur-diabetes-timer" target="_blank" rel="noopener noreferrer" class="btn-secondary btn-update-link" id="linkGitHubRepo">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                  </svg>
+                  <span data-i18n="settings.about.checkUpdates">Check for Updates (GitHub)</span>
+                </a>
+                <button type="button" id="btnCheckUpdates" class="btn-secondary btn-sm" data-i18n="settings.about.checkNow">🔄 Check Now</button>
+              </div>
+              <div id="updateStatusMsg" class="update-status-msg hidden"></div>
             </div>
           </div>
         </div>
@@ -762,8 +816,8 @@
             <div class="checklist-step-item">
               <div class="step-num">3</div>
               <div class="step-content">
-                <div class="step-title" data-i18n="checklist.step3Title">🩸 LibreLinkUp CGM Connected</div>
-                <div class="step-desc" data-i18n="checklist.step3Desc">If wearing a FreeStyle Libre sensor, connect your LibreLinkUp account (or keep Simulated Demo Mode enabled for testing).</div>
+                <div class="step-title" data-i18n="checklist.step3Title">🩸 LibreLinkUp CGM Setup (Optional)</div>
+                <div class="step-desc" data-i18n="checklist.step3Desc">If wearing a FreeStyle Libre sensor, enable CGM in Settings (⚙️) and enter your credentials. Otherwise, leave it disabled.</div>
               </div>
             </div>
 
@@ -790,7 +844,16 @@
               <div class="step-num">6</div>
               <div class="step-content">
                 <div class="step-title" data-i18n="checklist.step6Title">🛡️ Engage Lock Shield</div>
-                <div class="step-desc" data-i18n="checklist.step6Desc">Click Lock Shield (🛡️) in the top header. This blocks all keyboard keys, mouse wheel, and pets from altering your timer.</div>
+                <div class="step-desc" data-i18n="checklist.step6Desc">Click Lock Shield (🛡️) in the top header. This blocks keyboard inputs (cats walking on keyboard), toddler clicks, and gestures.</div>
+              </div>
+            </div>
+
+            <!-- Item 7 (Physical Hardware Power Button Precaution) -->
+            <div class="checklist-step-item checklist-item-warning">
+              <div class="step-num warning-step-num">7</div>
+              <div class="step-content">
+                <div class="step-title warning-step-title" data-i18n="checklist.step7Title">⚠️ Protect Physical Power Button</div>
+                <div class="step-desc" data-i18n="checklist.step7Desc">Software cannot block the physical computer power button. Cover or tape over the physical power key, configure OS power settings to 'Do Nothing', and elevate the laptop out of reach of pets and children.</div>
               </div>
             </div>
           </div>
@@ -842,8 +905,20 @@
 
           <!-- Visible PIN Input Box -->
           <div class="pin-input-group">
-            <input type="password" id="inputPasscodePin" class="visible-pin-input" placeholder="••••" maxlength="8"
-              inputmode="numeric" pattern="[0-9]*" autocomplete="off" autofocus>
+            <div class="password-input-wrapper pin-field-wrapper">
+              <input type="password" id="inputPasscodePin" class="visible-pin-input" placeholder="••••" maxlength="8"
+                inputmode="numeric" pattern="[0-9]*" autocomplete="off" autofocus>
+              <button type="button" class="btn-toggle-password btn-toggle-pin-modal" data-target="inputPasscodePin" title="Show / Hide PIN" aria-label="Show / Hide PIN">
+                <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg class="icon-eye-off hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div id="passcodeErrorMsg" class="passcode-error-msg hidden" data-i18n="lockShield.invalidPin">Incorrect PIN. Try again.</div>

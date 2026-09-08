@@ -1554,6 +1554,16 @@ body.ambient-mode {
   gap: 14px;
 }
 
+.form-row-grid-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+@media (max-width: 680px) {
+  .form-row-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
@@ -1754,9 +1764,11 @@ body.ambient-mode {
   box-shadow: 0 0 20px rgba(6, 182, 212, 0.6);
 }
 
-/* Locked Mode UI Interaction Protection, Scroll Wheel & Text Selection Lockout */
+/* Locked Mode UI Interaction Protection, Scroll Wheel, Touch Gestures & Text Selection Lockout */
 body.app-locked {
   overflow: hidden !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
   user-select: none !important;
   -webkit-user-select: none !important;
   -moz-user-select: none !important;
@@ -1788,6 +1800,67 @@ body.app-locked .custom-select-trigger {
   opacity: 0.4;
   filter: grayscale(0.4);
   cursor: not-allowed !important;
+}
+
+/* Developer Mode Sections (Hidden by default in production) */
+.dev-only-section {
+  display: none !important;
+}
+
+body.dev-mode-active .dev-only-section,
+.dev-only-section.dev-visible {
+  display: flex !important;
+}
+
+div.form-group.dev-only-section.dev-visible {
+  display: block !important;
+}
+
+/* Physical Power Button Precaution Notice in Checklist */
+.checklist-item-warning {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.15) !important;
+}
+
+.warning-step-num {
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  color: #fff !important;
+}
+
+.warning-step-title {
+  color: #fca5a5 !important;
+  font-weight: 700 !important;
+}
+
+.checklist-power-warning {
+  margin-top: 18px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.power-warning-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.power-warning-content strong {
+  color: #fca5a5;
+  font-size: 0.95rem;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.power-warning-content p {
+  color: #fecaca;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin: 0;
 }
 
 body.app-locked .timer-card,
@@ -1903,6 +1976,61 @@ body.app-locked .cgm-card {
   margin: 8px 0 16px;
   display: flex;
   justify-content: center;
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-input-wrapper .form-input {
+  width: 100%;
+  padding-right: 42px;
+}
+
+.btn-toggle-password {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+
+.btn-toggle-password:hover {
+  color: var(--accent-cyan);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.btn-toggle-password svg {
+  width: 18px;
+  height: 18px;
+}
+
+.password-input-wrapper.pin-field-wrapper {
+  max-width: 240px;
+  margin: 0 auto;
+}
+
+.password-input-wrapper.pin-field-wrapper .visible-pin-input {
+  padding-right: 44px;
+}
+
+.btn-toggle-pin-modal {
+  right: 10px;
 }
 
 .visible-pin-input {
@@ -2515,6 +2643,93 @@ body.app-locked .cgm-card {
   border-top: 1px solid var(--border-card);
 }
 
+/* About & Updates Card */
+.about-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.about-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.about-app-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.about-app-version {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(6, 182, 212, 0.15);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.about-desc {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: 14px;
+}
+
+.about-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-update-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  font-size: 0.88rem;
+  padding: 8px 14px;
+}
+
+.btn-update-link:hover {
+  text-decoration: none;
+  border-color: rgba(6, 182, 212, 0.4);
+  color: var(--accent-cyan);
+}
+
+.update-status-msg {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.update-status-msg.status-success {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.update-status-msg.status-update-available {
+  background: rgba(6, 182, 212, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  color: #38bdf8;
+}
+
+.update-status-msg.status-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
 .hidden {
   display: none !important;
 }
@@ -2639,6 +2854,26 @@ body.app-locked .cgm-card {
 [dir="rtl"] .visible-pin-input {
   direction: ltr;
   unicode-bidi: embed;
+}
+
+[dir="rtl"] .password-input-wrapper .form-input {
+  padding-right: 14px;
+  padding-left: 42px;
+}
+
+[dir="rtl"] .password-input-wrapper.pin-field-wrapper .visible-pin-input {
+  padding-right: 16px;
+  padding-left: 44px;
+}
+
+[dir="rtl"] .btn-toggle-password {
+  right: auto;
+  left: 8px;
+}
+
+[dir="rtl"] .btn-toggle-pin-modal {
+  right: auto;
+  left: 10px;
 }
 
 /* ==========================================================================

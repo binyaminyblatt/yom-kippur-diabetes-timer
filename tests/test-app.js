@@ -486,6 +486,57 @@ async function testServerEndpoints() {
     assert.ok(langResp.data.languages.some(l => l.code === 'en'), 'Must include en');
     assert.ok(langResp.data.languages.some(l => l.code === 'he'), 'Must include he');
     console.log(`✓ /api/languages returned ${langResp.data.languages.length} auto-discovered languages`);
+
+    // Test /api/config endpoint
+    const configResp = await fetchJson('/api/config');
+    assert.strictEqual(configResp.status, 200, '/api/config must return 200');
+    assert.strictEqual(configResp.data.success, true);
+    assert.strictEqual(typeof configResp.data.isDev, 'boolean', 'isDev must be a boolean');
+    console.log(`✓ /api/config verified (isDev: ${configResp.data.isDev})`);
+
+    // Test /api/settings GET and POST persistence
+    const testSettingsPayload = {
+      intervalSeconds: 360,
+      customIntervalMin: 6,
+      customIntervalSec: 0,
+      audioProfile: 'zen-bowl',
+      volume: 0.75,
+      lockPin: '4321',
+      cgm: {
+        isEnabled: false,
+        isDemo: false,
+        urgentLow: 50,
+        targetLow: 68,
+        targetHigh: 175,
+        region: 'US'
+      }
+    };
+    const postSettingsResp = await fetchJson('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(testSettingsPayload)
+    });
+    assert.strictEqual(postSettingsResp.status, 200, 'POST /api/settings must return 200');
+    assert.strictEqual(postSettingsResp.data.success, true);
+    assert.strictEqual(postSettingsResp.data.settings.intervalSeconds, 360);
+    assert.strictEqual(postSettingsResp.data.settings.audioProfile, 'zen-bowl');
+    assert.strictEqual(postSettingsResp.data.settings.lockPin, '4321');
+    assert.strictEqual(postSettingsResp.data.settings.cgm.urgentLow, 50, 'Persisted urgentLow must match 50');
+
+    const getSettingsResp = await fetchJson('/api/settings');
+    assert.strictEqual(getSettingsResp.status, 200, 'GET /api/settings must return 200');
+    assert.strictEqual(getSettingsResp.data.success, true);
+    assert.strictEqual(getSettingsResp.data.settings.intervalSeconds, 360, 'Persisted interval must match 360');
+    assert.strictEqual(getSettingsResp.data.settings.lockPin, '4321', 'Persisted PIN must match 4321');
+    assert.strictEqual(getSettingsResp.data.settings.cgm.urgentLow, 50, 'GET /api/settings cgm.urgentLow must match 50');
+    console.log('✓ /api/settings GET and POST persistence (including urgentLow) verified successfully');
+
+    // Test LibreService defaults
+    const libreInstance = new LibreService();
+    assert.strictEqual(libreInstance.isEnabled, false, 'LibreService must start disabled by default');
+    assert.strictEqual(libreInstance.isDemo, false, 'LibreService must start with isDemo=false in production');
+    assert.strictEqual(libreInstance.urgentLow, 55, 'LibreService default urgentLow must be 55');
+    console.log('✓ LibreService verified: disabled by default with isDemo=false and urgentLow=55');
   } finally {
     if (server && server.close) {
       server.close();

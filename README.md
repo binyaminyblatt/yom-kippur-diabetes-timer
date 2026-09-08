@@ -31,11 +31,12 @@ Operating phones, clicking buttons, or touching electronics is prohibited on Yom
 - **One-Touch Presets**: Instant halachic presets for 9m, 8m, 6m, 5m, and 4m intervals.
 
 ### 2. 🩸 LibreLinkUp CGM Integration & Live Trend Graph
+- **Disabled by Default**: Fresh installations start with CGM monitoring disabled so no unexpected alarms sound unless explicitly enabled.
 - **Real-Time Cloud Sync**: Connects securely to Abbott's **LibreLinkUp** cloud API (Freestyle Libre 2 / Libre 3 sensors) to monitor live blood glucose levels.
 - **Worldwide Regional Support**: Full support for US, EU, Global, Germany, France, Japan, Asia Pacific, Canada, and UAE endpoints.
 - **Glanceable Status Cards**: Real-time glucose value (mg/dL), trend direction arrows (↑, ↗, →, ↘, ↓), and time since last reading.
 - **Interactive 12-Hour Glucose History Graph**: Color-coded safety zones (Hypoglycemia <70 in red, Target in green, Hyperglycemia >180 in yellow).
-- **Simulated Demo Mode**: Built-in simulator with one-click test buttons (Low 58 mg/dL, Normal 110 mg/dL, High 225 mg/dL) for testing alarms before Yom Kippur.
+- **Developer Mode Simulator**: In Developer Mode (`DEV_MODE=true` or `?dev=true`), a built-in simulator with quick test buttons (Low 64 mg/dL, Urgent Low 48 mg/dL, Normal 115 mg/dL, High 215 mg/dL) is available for offline testing and diagnostics.
 
 ### 3. 🔔 Ambient Gentle Chimes & Auto-Silencing
 - **Synthesized Web Audio Engine**: Zero external audio files required. All chimes are dynamically synthesized using warm sine and triangle oscillators with harmonic overtone decay:
@@ -52,9 +53,10 @@ Operating phones, clicking buttons, or touching electronics is prohibited on Yom
 - **Rabbinic Chumra Offsets**: Supports custom extra time additions (+0m, +18m, +30m, +72m Rabbeinu Tam) and manual date/time override.
 - **Live Multi-Phase Countdown**: Displays dynamic status for *Yom Kippur Night*, *Yom Kippur Day*, *Upcoming Fast*, and *Fast Concluded*.
 
-### 5. 🛡️ Cat-Proof & Accidental Touch Lock Shield
-- **Complete Keyboard Capture**: Global capture-phase listeners intercept and swallow all physical keystrokes (Spacebar, S, function keys, numbers, and random key mashing from a cat walking across the keyboard).
-- **Scroll Wheel & Gesture Suppression**: Locks out mouse wheel scrolling and touch swiping (`overflow: hidden` and `wheel` capture) so the screen layout cannot be scrolled or dislodged.
+### 5. 🛡️ Cat-Proof, Toddler & Accidental Touch Lock Shield
+- **Complete Keyboard Capture**: Global capture-phase listeners intercept and swallow all physical keystrokes (Spacebar, letters, function keys, numbers, and random key mashing from a cat walking across the keyboard or a toddler tapping).
+- **Cross-Platform OS Kiosk Mode (macOS, Windows, Linux)**: When locked, engages native Kiosk Mode to block multi-finger trackpad gestures (such as macOS 3-finger/4-finger Spaces switching), Windows taskbar switching, and Linux shortcuts.
+- **Scroll Wheel & Gesture Suppression**: Locks out mouse wheel scrolling, pinch-to-zoom, and touch swiping (`overscroll-behavior: none`, `touch-action: none`) so the screen layout cannot be dislodged.
 - **Text Selection & Context Menu Lockout**: Prevents accidental mouse drag text selection and suppresses right-click menus.
 - **Escape Key & Fullscreen Lock**: Prevents pressing or holding the Escape key from breaking out of fullscreen mode.
 - **Sticky Status Banner**: The red shield banner stays pinned at the top of the viewport with the **"Unlock with PIN"** button always in view.
@@ -62,6 +64,14 @@ Operating phones, clicking buttons, or touching electronics is prohibited on Yom
   - Centered popup with an on-screen touch keypad and focused PIN input box.
   - Displays the unlock PIN directly on the modal (**"Your Unlock PIN: 1234"**) to ensure you can never be accidentally locked out while keeping pets from modifying settings.
   - Automatically closes and resets after 60 seconds of inactivity.
+
+> [!WARNING]
+> ### ⚠️ Critical Notice: Physical Hardware Power Button Precaution
+> The software Lock Shield completely protects against keyboard inputs, mouse clicks, and trackpad gestures. However, **software cannot physically disable or block your computer's physical Power Button / Power Key**.
+> Users must take their own physical precautions prior to Yom Kippur:
+> 1. **Physical Protective Cover**: Place a small plastic cap, tape, or protective cover over the physical laptop power key to prevent pets or toddlers from pressing it.
+> 2. **OS Power Button Behavior**: In your operating system settings (e.g. Windows Power Options / macOS Energy settings), configure the physical power button to "Do Nothing" when pressed.
+> 3. **Device Elevation**: Position your laptop or monitor on a stable, elevated table or stand out of reach of roaming pets and curious toddlers.
 
 ### 6. ☀️ 25-Hour Display Wake Lock (Never Sleeps)
 - **Native OS Power Save Blocker**: Utilizes Electron's `powerSaveBlocker.start('prevent-display-sleep')` to prevent the operating system from dimming the screen, turning off the monitor, or launching screensavers.

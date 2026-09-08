@@ -17,6 +17,16 @@ document.addEventListener('DOMContentLoaded', () => {
   let alarmSnoozedUntil = 0;
   let lastChimeTriggerTime = 0;
 
+  // Lock shield & Passcode state
+  let isLocked = false;
+  let isPasscodeModalOpen = false;
+  let enteredPin = '';
+  let storedPin = '1234';
+  let autoLockEnabled = false;
+  let autoLockTimeout = null;
+  let modalIdleSeconds = 60;
+  let modalIdleInterval = null;
+
   // DOM Elements - Navigation & System
   const wallClockEl = document.getElementById('wallClock');
   const selectLanguageHeader = document.getElementById('selectLanguageHeader');
@@ -186,6 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputLibreEmail = document.getElementById('inputLibreEmail');
   const inputLibrePassword = document.getElementById('inputLibrePassword');
   const selectLibreRegion = document.getElementById('selectLibreRegion');
+  const inputTargetUrgentLow = document.getElementById('inputTargetUrgentLow');
   const inputTargetLow = document.getElementById('inputTargetLow');
   const inputTargetHigh = document.getElementById('inputTargetHigh');
   const btnTestModalA = document.getElementById('btnTestModalA');
@@ -194,23 +205,81 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnTestModalVoice = document.getElementById('btnTestModalVoice');
 
   // --------------------------------------------------------------------------
+  // Settings Persistence Helper (LocalStorage + /api/settings sync)
+  // --------------------------------------------------------------------------
+  async function saveAllSettings(partial = {}) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        if (partial.intervalSeconds !== undefined) localStorage.setItem('yom_kippur_interval_seconds', String(partial.intervalSeconds));
+        if (partial.customIntervalMin !== undefined) localStorage.setItem('yom_kippur_custom_min', String(partial.customIntervalMin));
+        if (partial.customIntervalSec !== undefined) localStorage.setItem('yom_kippur_custom_sec', String(partial.customIntervalSec));
+        if (partial.audioProfile !== undefined) localStorage.setItem('yom_kippur_audio_profile', partial.audioProfile);
+        if (partial.volume !== undefined) localStorage.setItem('yom_kippur_volume', String(partial.volume));
+        if (partial.speechEnabled !== undefined) localStorage.setItem('yom_kippur_speech_enabled', String(partial.speechEnabled));
+        if (partial.autoShutoffSeconds !== undefined) localStorage.setItem('yom_kippur_auto_shutoff', String(partial.autoShutoffSeconds));
+        if (partial.scheduleMode !== undefined) localStorage.setItem('yom_kippur_schedule_mode', partial.scheduleMode);
+        if (partial.fastEndTime !== undefined) localStorage.setItem('yom_kippur_fast_end_time', partial.fastEndTime);
+        if (partial.fastEndDate !== undefined) localStorage.setItem('yom_kippur_fast_end_date', partial.fastEndDate);
+        if (partial.fastEndExtra !== undefined) localStorage.setItem('yom_kippur_fast_end_extra', String(partial.fastEndExtra));
+        if (partial.lockPin !== undefined) localStorage.setItem('yom_kippur_lock_pin', String(partial.lockPin));
+        if (partial.autoLockEnabled !== undefined) localStorage.setItem('yom_kippur_auto_lock', String(partial.autoLockEnabled));
+        if (partial.isLocked !== undefined) localStorage.setItem('yom_kippur_is_locked', String(partial.isLocked));
+        if (partial.hideStartupChecklist !== undefined) localStorage.setItem('yom_kippur_hide_startup_checklist', String(partial.hideStartupChecklist));
+        if (partial.language !== undefined) localStorage.setItem('ykt_language', partial.language);
+        if (partial.cgm !== undefined) localStorage.setItem('yom_kippur_cgm_settings', JSON.stringify(partial.cgm));
+      }
+
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(partial)
+      }).catch(() => {});
+    } catch (e) {
+      console.warn('Failed to save settings:', e);
+    }
+  }
+
+  // --------------------------------------------------------------------------
   // 2. Initialize Chart & Services
   // --------------------------------------------------------------------------
   chart = new ChartRenderer(cgmCanvas);
 
+  // Load saved interval (default: 540s = 9m)
+  let initialIntervalSeconds = 540;
+  try {
+    const savedSecs = localStorage.getItem('yom_kippur_interval_seconds');
+    if (savedSecs) {
+      const parsed = parseInt(savedSecs, 10);
+      if (parsed >= 5) initialIntervalSeconds = parsed;
+    }
+  } catch (e) {}
+
   // Initialize Timer Engine
   timer = new TimerEngine({
-    intervalSeconds: 540, // 9 minutes default
+    intervalSeconds: initialIntervalSeconds,
     onTick: updateTimerUI,
     onChime: handleChimeTrigger
   });
 
-  // Initialize LibreLinkUp Service
+  // Sync UI preset active button with initialIntervalSeconds
+  presetButtons.forEach(b => {
+    const s = parseInt(b.getAttribute('data-seconds'), 10);
+    if (s === initialIntervalSeconds) {
+      b.classList.add('active');
+    } else {
+      b.classList.remove('active');
+    }
+  });
+  if (inputIntervalMin) inputIntervalMin.value = Math.floor(initialIntervalSeconds / 60);
+  if (inputIntervalSec) inputIntervalSec.value = initialIntervalSeconds % 60;
+
+  // Initialize LibreLinkUp Service (starts disabled by default)
   libre = new LibreService({
     onReading: handleCGMReading,
     onStatusChange: handleCGMStatusChange,
     onError: handleCGMError
   });
+  window.libre = libre;
 
   // --------------------------------------------------------------------------
   // 3. Yom Kippur Fast Schedule & Zmanim Engine (kosher-zmanim & Geolocation)
@@ -632,7 +701,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data.isUrgentLow) {
       glucoseValue.classList.add('val-low');
       glucoseStatusBadge.classList.add('status-low');
-      glucoseStatusBadge.textContent = 'URGENT LOW (< 55)';
+      const urgentVal = data.urgentLow || libre.urgentLow || 55;
+      glucoseStatusBadge.textContent = window.i18n ? window.i18n.t('cgm.urgentLow', { val: urgentVal }) : `URGENT LOW (< ${urgentVal})`;
       triggerGlucoseAlarm('urgent-low', data.glucose);
     } else if (data.isLow) {
       glucoseValue.classList.add('val-low');
@@ -761,6 +831,11 @@ document.addEventListener('DOMContentLoaded', () => {
       timer.setInterval(seconds);
       inputIntervalMin.value = Math.floor(seconds / 60);
       inputIntervalSec.value = seconds % 60;
+      saveAllSettings({
+        intervalSeconds: seconds,
+        customIntervalMin: Math.floor(seconds / 60),
+        customIntervalSec: seconds % 60
+      });
     });
   });
 
@@ -972,6 +1047,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inputLibreEmail.value = libre.email;
     inputLibrePassword.value = libre.password;
     selectLibreRegion.value = libre.region;
+    if (inputTargetUrgentLow) inputTargetUrgentLow.value = libre.urgentLow || 55;
     inputTargetLow.value = libre.targetLow;
     inputTargetHigh.value = libre.targetHigh;
     inputLockPasscode.value = storedPin;
@@ -1383,26 +1459,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     timer.setInterval(totalSeconds);
 
+    // Sync preset active button styling
+    presetButtons.forEach(b => {
+      const s = parseInt(b.getAttribute('data-seconds'), 10);
+      if (s === totalSeconds) {
+        b.classList.add('active');
+      } else {
+        b.classList.remove('active');
+      }
+    });
+
     // Save Fast Schedule Settings
     if (selectFastScheduleMode) {
       scheduleMode = selectFastScheduleMode.value;
-      try {
-        localStorage.setItem('yom_kippur_schedule_mode', scheduleMode);
-      } catch (e) {}
     }
 
     if (scheduleMode === 'manual') {
       fastEndTime = inputFastEndTime.value || '19:45';
       fastEndDate = inputFastEndDate.value || todayStr;
       displayFastEndTime.textContent = fastEndTime;
-      try {
-        localStorage.setItem('yom_kippur_fast_end_time', fastEndTime);
-        localStorage.setItem('yom_kippur_fast_end_date', fastEndDate);
-      } catch (e) {}
-    } else {
-      try {
-        localStorage.removeItem('yom_kippur_fast_end_date');
-      } catch (e) {}
     }
 
     await fetchZmanimFastEnd();
@@ -1411,16 +1486,13 @@ document.addEventListener('DOMContentLoaded', () => {
     audio.setVolume(inputVolume.value);
     audio.setAutoShutoffSeconds(inputAutoShutoff.value);
     audio.setSpeech(checkSpeech.checked);
-    try {
-      localStorage.setItem('yom_kippur_speech_enabled', String(checkSpeech.checked));
-      localStorage.setItem('yom_kippur_auto_shutoff', inputAutoShutoff.value);
-    } catch (e) {}
 
     libre.isEnabled = checkCGMEnabled.checked;
-    libre.isDemo = checkDemoMode.checked;
+    libre.isDemo = isDevMode ? checkDemoMode.checked : false;
     libre.email = inputLibreEmail.value.trim();
     libre.password = inputLibrePassword.value.trim();
     libre.region = selectLibreRegion.value;
+    if (inputTargetUrgentLow) libre.urgentLow = parseInt(inputTargetUrgentLow.value, 10) || 55;
     libre.targetLow = parseInt(inputTargetLow.value, 10) || 70;
     libre.targetHigh = parseInt(inputTargetHigh.value, 10) || 180;
     libre.saveSettings();
@@ -1429,10 +1501,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const newPin = inputLockPasscode.value.trim();
     if (newPin && /^\d+$/.test(newPin)) {
       storedPin = newPin;
-      try { localStorage.setItem('yom_kippur_lock_pin', storedPin); } catch (e) {}
     }
     autoLockEnabled = checkAutoLock.checked;
-    try { localStorage.setItem('yom_kippur_auto_lock', String(autoLockEnabled)); } catch (e) {}
+
+    // Persist all settings across runs via unified saver
+    await saveAllSettings({
+      intervalSeconds: totalSeconds,
+      customIntervalMin: mins,
+      customIntervalSec: secs,
+      scheduleMode,
+      fastEndTime,
+      fastEndDate: scheduleMode === 'manual' ? fastEndDate : '',
+      fastEndExtra: extraMinutes,
+      audioProfile: selectModalSoundProfile.value,
+      volume: inputVolume.value,
+      autoShutoffSeconds: inputAutoShutoff.value,
+      speechEnabled: checkSpeech.checked,
+      lockPin: storedPin,
+      autoLockEnabled,
+      cgm: {
+        isEnabled: libre.isEnabled,
+        isDemo: libre.isDemo,
+        email: libre.email,
+        password: libre.password,
+        region: libre.region,
+        urgentLow: libre.urgentLow,
+        targetLow: libre.targetLow,
+        targetHigh: libre.targetHigh,
+        unit: libre.unit
+      }
+    });
 
     // Re-initialize CGM service
     await libre.start();
@@ -1441,17 +1539,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // --------------------------------------------------------------------------
-  // 11. Cat-Proof Lock Shield & Passcode Logic
+  // 11. Cat-Proof & Toddler Lock Shield & Passcode Logic
   // --------------------------------------------------------------------------
-  let isLocked = false;
-  let isPasscodeModalOpen = false;
-  let enteredPin = '';
-  let storedPin = '1234';
-  let autoLockEnabled = false;
-  let autoLockTimeout = null;
-  let modalIdleSeconds = 60;
-  let modalIdleInterval = null;
-
   try {
     const savedPin = localStorage.getItem('yom_kippur_lock_pin');
     if (savedPin) storedPin = savedPin;
@@ -1465,10 +1554,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function setAppLocked(locked) {
     isLocked = locked;
+    // Cross-Platform OS Kiosk Mode Trigger (macOS, Windows, Linux)
+    if (window.electronAPI && typeof window.electronAPI.setLocked === 'function') {
+      window.electronAPI.setLocked(locked);
+    }
+
     if (locked) {
       document.body.classList.add('app-locked');
       btnLockToggle.classList.add('active');
-      lockToggleText.textContent = 'Shield Active';
+      lockToggleText.textContent = window.i18n ? window.i18n.t('lockShield.shieldActive', 'Shield Active') : 'Shield Active';
       lockIcon.innerHTML = '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>';
       lockShieldBanner.classList.remove('hidden');
       try {
@@ -1485,7 +1579,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       document.body.classList.remove('app-locked');
       btnLockToggle.classList.remove('active');
-      lockToggleText.textContent = 'Lock Shield';
+      lockToggleText.textContent = window.i18n ? window.i18n.t('header.lockShield', 'Lock Shield') : 'Lock Shield';
       lockIcon.innerHTML = '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path>';
       lockShieldBanner.classList.add('hidden');
       try {
@@ -1522,7 +1616,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
   }
 
+  let pinShakeTimeout = null;
+  let pinAutoSubmitTimeout = null;
+
+  function clearPendingPinTimers() {
+    if (pinShakeTimeout) {
+      clearTimeout(pinShakeTimeout);
+      pinShakeTimeout = null;
+    }
+    if (pinAutoSubmitTimeout) {
+      clearTimeout(pinAutoSubmitTimeout);
+      pinAutoSubmitTimeout = null;
+    }
+  }
+
   function openUnlockModal() {
+    clearPendingPinTimers();
     isPasscodeModalOpen = true;
     enteredPin = '';
     if (inputPasscodePin) {
@@ -1537,6 +1646,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closeUnlockModal() {
+    clearPendingPinTimers();
     isPasscodeModalOpen = false;
     enteredPin = '';
     if (inputPasscodePin) inputPasscodePin.value = '';
@@ -1550,6 +1660,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function appendPinDigit(digit) {
+    clearPendingPinTimers();
     if (enteredPin.length >= 8) return;
     enteredPin += digit;
     if (inputPasscodePin) inputPasscodePin.value = enteredPin;
@@ -1557,13 +1668,14 @@ document.addEventListener('DOMContentLoaded', () => {
     resetModalIdleTimer();
 
     if (enteredPin.length === storedPin.length) {
-      setTimeout(() => {
+      pinAutoSubmitTimeout = setTimeout(() => {
         submitUnlockPin();
       }, 120);
     }
   }
 
   function removeLastPinDigit() {
+    clearPendingPinTimers();
     if (enteredPin.length > 0) {
       enteredPin = enteredPin.slice(0, -1);
       if (inputPasscodePin) inputPasscodePin.value = enteredPin;
@@ -1573,6 +1685,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function clearPin() {
+    clearPendingPinTimers();
     enteredPin = '';
     if (inputPasscodePin) inputPasscodePin.value = '';
     passcodeErrorMsg.classList.add('hidden');
@@ -1580,6 +1693,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function submitUnlockPin() {
+    clearPendingPinTimers();
     if (inputPasscodePin && inputPasscodePin.value) {
       enteredPin = inputPasscodePin.value.replace(/\D/g, '');
     }
@@ -1598,7 +1712,7 @@ document.addEventListener('DOMContentLoaded', () => {
         void inputPasscodePin.offsetWidth; // trigger reflow
         inputPasscodePin.classList.add('pin-shake');
       }
-      setTimeout(() => {
+      pinShakeTimeout = setTimeout(() => {
         enteredPin = '';
         if (inputPasscodePin) {
           inputPasscodePin.value = '';
@@ -1641,13 +1755,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (inputPasscodePin) {
     inputPasscodePin.addEventListener('input', () => {
+      clearPendingPinTimers();
       enteredPin = inputPasscodePin.value.replace(/\D/g, '').slice(0, 8);
       inputPasscodePin.value = enteredPin;
       passcodeErrorMsg.classList.add('hidden');
       resetModalIdleTimer();
 
       if (enteredPin.length === storedPin.length) {
-        setTimeout(() => {
+        pinAutoSubmitTimeout = setTimeout(() => {
           submitUnlockPin();
         }, 120);
       }
@@ -1687,16 +1802,171 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Start CGM Service
+  // --------------------------------------------------------------------------
+  // 12. Password & PIN Visibility Toggle Buttons
+  // --------------------------------------------------------------------------
+  const togglePasswordBtns = document.querySelectorAll('.btn-toggle-password');
+  togglePasswordBtns.forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const targetId = btn.getAttribute('data-target');
+      if (!targetId) return;
+      const inputEl = document.getElementById(targetId);
+      if (!inputEl) return;
+
+      const isPassword = inputEl.type === 'password';
+      inputEl.type = isPassword ? 'text' : 'password';
+
+      const iconEye = btn.querySelector('.icon-eye');
+      const iconEyeOff = btn.querySelector('.icon-eye-off');
+
+      if (isPassword) {
+        if (iconEye) iconEye.classList.add('hidden');
+        if (iconEyeOff) iconEyeOff.classList.remove('hidden');
+        const hideLabel = window.i18n ? window.i18n.t('common.hidePassword', 'Hide') : 'Hide';
+        btn.setAttribute('aria-label', hideLabel);
+        btn.setAttribute('title', hideLabel);
+      } else {
+        if (iconEye) iconEye.classList.remove('hidden');
+        if (iconEyeOff) iconEyeOff.classList.add('hidden');
+        const showLabel = window.i18n ? window.i18n.t('common.showPassword', 'Show') : 'Show';
+        btn.setAttribute('aria-label', showLabel);
+        btn.setAttribute('title', showLabel);
+      }
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 13. GitHub Repository Link & Update Checker
+  // --------------------------------------------------------------------------
+  const btnCheckUpdates = document.getElementById('btnCheckUpdates');
+  const updateStatusMsg = document.getElementById('updateStatusMsg');
+  const linkGitHubRepo = document.getElementById('linkGitHubRepo');
+  const CURRENT_APP_VERSION = 'v1.0.1';
+
+  function isNewerVersion(latest, current) {
+    const lParts = latest.split('.').map(Number);
+    const cParts = current.split('.').map(Number);
+    for (let i = 0; i < Math.max(lParts.length, cParts.length); i++) {
+      const l = lParts[i] || 0;
+      const c = cParts[i] || 0;
+      if (l > c) return true;
+      if (l < c) return false;
+    }
+    return false;
+  }
+
+  async function checkForUpdates() {
+    if (!updateStatusMsg) return;
+    updateStatusMsg.className = 'update-status-msg';
+    updateStatusMsg.classList.remove('hidden');
+    updateStatusMsg.textContent = window.i18n ? window.i18n.t('settings.about.checking', 'Checking for updates on GitHub...') : 'Checking for updates on GitHub...';
+
+    try {
+      const response = await fetch('https://api.github.com/repos/binyaminyblatt/yom-kippur-diabetes-timer/releases/latest', {
+        headers: { 'Accept': 'application/vnd.github.v3+json' }
+      });
+      if (!response.ok) {
+        throw new Error(`GitHub API HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      const latestTag = data.tag_name || data.name || '';
+      const cleanLatest = latestTag.replace(/^v/, '').trim();
+      const cleanCurrent = CURRENT_APP_VERSION.replace(/^v/, '').trim();
+
+      if (cleanLatest && cleanLatest !== cleanCurrent && isNewerVersion(cleanLatest, cleanCurrent)) {
+        updateStatusMsg.className = 'update-status-msg status-update-available';
+        const msg = window.i18n ? window.i18n.t('settings.about.updateAvailable', { version: latestTag }) : `🚀 New version ${latestTag} is available!`;
+        const downloadUrl = data.html_url || 'https://github.com/binyaminyblatt/yom-kippur-diabetes-timer/releases';
+        updateStatusMsg.innerHTML = `${msg} <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" class="update-dl-link" style="color: #38bdf8; text-decoration: underline; font-weight: 600; margin-left: 6px;">Download ${latestTag}</a>`;
+      } else {
+        updateStatusMsg.className = 'update-status-msg status-success';
+        updateStatusMsg.textContent = window.i18n ? window.i18n.t('settings.about.upToDate', { version: CURRENT_APP_VERSION }) : `✓ You are running the latest version (${CURRENT_APP_VERSION}).`;
+      }
+    } catch (err) {
+      console.warn('Update check error:', err);
+      updateStatusMsg.className = 'update-status-msg status-error';
+      const failMsg = window.i18n ? window.i18n.t('settings.about.checkFailed', 'Could not check for updates.') : 'Could not check for updates.';
+      updateStatusMsg.innerHTML = `${failMsg} <a href="https://github.com/binyaminyblatt/yom-kippur-diabetes-timer/releases" target="_blank" rel="noopener noreferrer" style="color: #f87171; text-decoration: underline; margin-left: 6px;">Open GitHub Releases</a>`;
+    }
+  }
+
+  if (btnCheckUpdates) {
+    btnCheckUpdates.addEventListener('click', (e) => {
+      e.preventDefault();
+      checkForUpdates();
+    });
+  }
+
+  if (linkGitHubRepo) {
+    linkGitHubRepo.addEventListener('click', (e) => {
+      if (window.electronAPI && typeof window.electronAPI.openExternal === 'function') {
+        e.preventDefault();
+        window.electronAPI.openExternal(linkGitHubRepo.href || 'https://github.com/binyaminyblatt/yom-kippur-diabetes-timer');
+      }
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // 14. Developer Mode & Simulator Visibility Control
+  // --------------------------------------------------------------------------
+  let isDevMode = false;
+  async function checkDevMode() {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('dev') === 'true') {
+        isDevMode = true;
+      } else if (window.electronAPI && window.electronAPI.isDev) {
+        isDevMode = true;
+      } else {
+        const resp = await fetch('/api/config');
+        const data = await resp.json();
+        if (data && data.isDev) isDevMode = true;
+      }
+    } catch (e) {}
+
+    if (isDevMode) {
+      document.body.classList.add('dev-mode-active');
+      const demoControls = document.getElementById('demoControlsSection');
+      if (demoControls) {
+        demoControls.classList.remove('hidden');
+        demoControls.classList.add('dev-visible');
+      }
+      const devSettings = document.getElementById('devSettingsGroup');
+      if (devSettings) {
+        devSettings.classList.remove('hidden');
+        devSettings.classList.add('dev-visible');
+      }
+    } else {
+      document.body.classList.remove('dev-mode-active');
+      libre.isDemo = false;
+      const demoControls = document.getElementById('demoControlsSection');
+      if (demoControls) {
+        demoControls.classList.add('hidden');
+        demoControls.classList.remove('dev-visible');
+      }
+      const devSettings = document.getElementById('devSettingsGroup');
+      if (devSettings) {
+        devSettings.classList.add('hidden');
+        devSettings.classList.remove('dev-visible');
+      }
+    }
+  }
+
+  // Initialize Developer Mode check
+  checkDevMode();
+
+  // Start CGM Service (starts disabled by default)
   libre.start();
 
   // --------------------------------------------------------------------------
-  // Global Capture-Phase Keyboard Interception (Cat Proof!)
+  // Global Capture-Phase Keyboard Interception (Cat & Toddler Proof!)
   // --------------------------------------------------------------------------
   window.addEventListener('keydown', (e) => {
     if (isLocked) {
       if (!isPasscodeModalOpen) {
-        // Cat walking on keyboard or accidental key mash: block completely!
+        // Cat walking on keyboard, toddler clicks, or accidental key mash: block completely!
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -1762,24 +2032,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, true);
 
-  // Scroll wheel & Touch gesture lockout while in locked shield mode
-  window.addEventListener('wheel', (e) => {
-    if (isLocked && !isPasscodeModalOpen) {
+  // Multi-touch, swipe, scroll wheel, and gesture lockout while in locked shield mode
+  const blockIfLocked = (e) => {
+    if (isLocked) {
+      const target = e.target;
+      if (target && (target.closest('#lockShieldBanner') || target.closest('#passcodeModal'))) {
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
-      e.stopImmediatePropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
       return false;
     }
-  }, { passive: false, capture: true });
+  };
 
-  window.addEventListener('touchmove', (e) => {
-    if (isLocked && !isPasscodeModalOpen) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      return false;
-    }
-  }, { passive: false, capture: true });
+  ['wheel', 'touchmove', 'touchstart', 'touchend', 'touchcancel', 'gesturestart', 'gesturechange', 'gestureend'].forEach(evt => {
+    window.addEventListener(evt, blockIfLocked, { passive: false, capture: true });
+  });
 
   // Text selection & Context Menu suppression while locked
   window.addEventListener('selectstart', (e) => {

@@ -1,8 +1,12 @@
 // Initialize System CA Trust Store immediately for SSL inspection filter support
 require('./system-ca').initSystemCA();
 
-const { app, BrowserWindow, powerSaveBlocker, Menu } = require('electron');
+const { app, BrowserWindow, powerSaveBlocker, Menu, ipcMain, shell } = require('electron');
 const path = require('path');
+
+// Disable pinch zoom and overscroll swipe navigation at Chromium level
+app.commandLine.appendSwitch('disable-pinch');
+app.commandLine.appendSwitch('overscroll-history-navigation', '0');
 
 let mainWindow;
 let powerBlockerId = null;
@@ -12,9 +16,9 @@ let activeServerPort = null;
 async function startBackendServer() {
   try {
     const { startServer } = require('./server');
-    // Only attempt fixed port 3000 if explicitly in DEV_MODE; otherwise allocate an ephemeral random free port (0)
-    const isDev = !app.isPackaged && process.env.DEV_MODE === 'true';
-    const targetPort = isDev ? (process.env.PORT ? parseInt(process.env.PORT, 10) : 3000) : 0;
+    // Use consistent port 3000 (or PORT env) across all runs so localStorage and cached state remain deterministic.
+    // If 3000 is occupied, startServer automatically falls back gracefully.
+    const targetPort = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
     
     const result = await startServer(targetPort);
     serverInstance = result.server;
@@ -42,6 +46,7 @@ async function createWindow() {
     backgroundColor: '#090d16',
     title: 'Yom Kippur Diabetes Interval Timer & LibreLinkUp CGM',
     webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -61,6 +66,25 @@ async function createWindow() {
     }
   });
 
+  // Handle external link clicks (like GitHub repository and updates) in default browser
+  mainWindow.webContents.setWindowOpenHandler((details) => {
+    if (details.url.startsWith('https:') || details.url.startsWith('http:')) {
+      shell.openExternal(details.url);
+      return { action: 'deny' };
+    }
+    return { action: 'allow' };
+  });
+
+  // Prevent back/forward trackpad swipe navigation
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!url.startsWith(`http://localhost:${activeServerPort}`)) {
+      event.preventDefault();
+      if (url.startsWith('https:') || url.startsWith('http:')) {
+        shell.openExternal(url);
+      }
+    }
+  });
+
   mainWindow.on('leave-html-full-screen', () => {
     mainWindow.setFullScreen(true);
   });
@@ -71,6 +95,30 @@ async function createWindow() {
         mainWindow.setFullScreen(true);
       }
     }, 50);
+  });
+
+  // Cross-Platform Kiosk Mode IPC: When renderer locks, engage OS Kiosk mode (blocking macOS 3-finger swipe, Windows taskbars, Linux shortcuts)
+  ipcMain.on('app:set-locked', (event, isLocked) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        if (isLocked) {
+          mainWindow.setKiosk(true);
+        } else {
+          mainWindow.setKiosk(false);
+          mainWindow.setFullScreen(true);
+        }
+        console.log(`[Electron] Lock Shield state changed: isLocked=${isLocked}, kiosk=${mainWindow.isKiosk()}`);
+      } catch (e) {
+        console.warn('[Electron] Failed to update kiosk/lock state:', e);
+      }
+    }
+  });
+
+  // Open external link in default browser from renderer
+  ipcMain.on('app:open-external', (event, url) => {
+    if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+      shell.openExternal(url);
+    }
   });
 
   // Prevent display sleep over 25 hours

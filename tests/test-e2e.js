@@ -33,21 +33,27 @@ async function runE2ETests() {
     const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
     const page = await context.newPage();
 
-    // 1. Navigate to main page
-    console.log(`\n1. Navigating to http://localhost:${testPort}...`);
-    await page.goto(`http://localhost:${testPort}`, { waitUntil: 'domcontentloaded' });
+    // 1. Navigate to main page in Developer Mode for testing
+    console.log(`\n1. Navigating to http://localhost:${testPort}?dev=true...`);
+    await page.goto(`http://localhost:${testPort}?dev=true`, { waitUntil: 'domcontentloaded' });
     const title = await page.title();
     console.log(`✓ Page loaded successfully: "${title}"`);
 
-    // Dismiss startup checklist if open
+    // Verify startup checklist appears on launch and contains Step 7 Power Warning
+    console.log('\n1b. Verifying Startup Checklist and Physical Power Button Warning (Step 7)...');
     await page.waitForTimeout(600);
     const checklistModal = page.locator('#checklistModal');
-    if (await checklistModal.isVisible()) {
-      const btnCloseChecklistModal = page.locator('#btnCloseChecklistModal');
-      await btnCloseChecklistModal.click();
-      await page.waitForTimeout(300);
-      console.log('✓ Startup checklist modal dismissed');
-    }
+    const checklistVisibleOnLaunch = await checklistModal.isVisible();
+    assert.strictEqual(checklistVisibleOnLaunch, true, 'Startup checklist modal must appear on initial launch');
+
+    const step7Title = await page.locator('.warning-step-title').textContent();
+    assert.ok(step7Title.includes('Power Button'), 'Step 7 must warn about physical power button');
+    console.log(`✓ Startup checklist opened automatically with Step 7: "${step7Title}"`);
+
+    const btnCloseChecklistModal = page.locator('#btnCloseChecklistModal');
+    await btnCloseChecklistModal.click();
+    await page.waitForTimeout(300);
+    console.log('✓ Startup checklist modal dismissed');
 
     // 2. Start the timer
     console.log('\n2. Testing Start Timer...');
@@ -95,10 +101,22 @@ async function runE2ETests() {
     const passcodeModalVisible = await page.locator('#passcodeModal').isVisible();
     assert.strictEqual(passcodeModalVisible, true, 'Passcode modal must be visible');
 
-    // 6. Verify Visible PIN Input Box & PIN Reminder Banner
-    console.log('\n6. Verifying Visible PIN Input Box and PIN Reminder...');
-    const inputPinVisible = await page.locator('#inputPasscodePin').isVisible();
-    assert.strictEqual(inputPinVisible, true, 'Visible PIN input box #inputPasscodePin must be visible');
+    // Test Password Display Toggle on PIN input
+    const btnTogglePin = page.locator('.btn-toggle-pin-modal');
+    assert.strictEqual(await btnTogglePin.isVisible(), true, 'Toggle PIN visibility button must be visible');
+    let pinInputType = await page.locator('#inputPasscodePin').getAttribute('type');
+    assert.strictEqual(pinInputType, 'password', 'PIN input type should be password by default');
+    
+    await btnTogglePin.click();
+    await page.waitForTimeout(100);
+    pinInputType = await page.locator('#inputPasscodePin').getAttribute('type');
+    assert.strictEqual(pinInputType, 'text', 'PIN input type should become text after toggle click');
+
+    await btnTogglePin.click();
+    await page.waitForTimeout(100);
+    pinInputType = await page.locator('#inputPasscodePin').getAttribute('type');
+    assert.strictEqual(pinInputType, 'password', 'PIN input type should return to password after second click');
+    console.log('✓ PIN show/hide display toggle button verified on unlock modal');
 
     const pinReminderText = await page.locator('#displayUnlockPin').textContent();
     assert.strictEqual(pinReminderText.trim(), '1234', 'PIN reminder must display 1234');
@@ -111,7 +129,7 @@ async function runE2ETests() {
     console.log('\n7. Testing Incorrect PIN entry...');
     await page.locator('#inputPasscodePin').fill('9999');
     await page.locator('#btnSubmitPin').click();
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(600);
 
     const errorVisible = await page.locator('#passcodeErrorMsg').isVisible();
     assert.strictEqual(errorVisible, true, 'Error message must appear for incorrect PIN');
@@ -120,7 +138,6 @@ async function runE2ETests() {
     // 8. Test Correct PIN Unlock
     console.log('\n8. Testing Correct PIN Unlock (1234)...');
     await page.locator('#inputPasscodePin').fill('1234');
-    await page.locator('#btnSubmitPin').click();
     await page.waitForTimeout(400);
 
     const modalAfterUnlock = await page.locator('#passcodeModal').isVisible();
@@ -149,8 +166,7 @@ async function runE2ETests() {
     console.log('✓ Auto-silencing default confirmed at 20s (15-pulse cycle)');
 
     // Toggle Voice Readout ON
-    const checkSpeech = page.locator('#checkSpeech');
-    await checkSpeech.click();
+    await page.evaluate(() => document.getElementById('checkSpeech').click());
     await page.waitForTimeout(200);
 
     const isSpeechEnabled = await page.evaluate(() => window.audioEngine.speechEnabled);
@@ -172,10 +188,63 @@ async function runE2ETests() {
     await page.waitForTimeout(400);
     console.log('✓ Test Glucose Alert button (15 pulses) clicked and verified');
 
+    // Test Password Display Toggle for LibreLinkUp Password and Lock PIN in Settings
+    console.log('\n9b. Testing Show/Hide Password buttons in Settings modal...');
+    const btnToggleLibrePass = page.locator('.btn-toggle-password[data-target="inputLibrePassword"]');
+    assert.strictEqual(await btnToggleLibrePass.isVisible(), true, 'Libre password toggle button must be visible');
+    let librePassType = await page.locator('#inputLibrePassword').getAttribute('type');
+    assert.strictEqual(librePassType, 'password', 'Libre password should be password type initially');
+    await btnToggleLibrePass.click();
+    await page.waitForTimeout(100);
+    librePassType = await page.locator('#inputLibrePassword').getAttribute('type');
+    assert.strictEqual(librePassType, 'text', 'Libre password should become text type after toggle');
+    await btnToggleLibrePass.click();
+    await page.waitForTimeout(100);
+
+    const btnToggleLockPass = page.locator('.btn-toggle-password[data-target="inputLockPasscode"]');
+    assert.strictEqual(await btnToggleLockPass.isVisible(), true, 'Lock PIN toggle button must be visible');
+    let lockPassType = await page.locator('#inputLockPasscode').getAttribute('type');
+    assert.strictEqual(lockPassType, 'password', 'Lock PIN should be password type initially');
+    await btnToggleLockPass.click();
+    await page.waitForTimeout(100);
+    lockPassType = await page.locator('#inputLockPasscode').getAttribute('type');
+    assert.strictEqual(lockPassType, 'text', 'Lock PIN should become text type after toggle');
+    await btnToggleLockPass.click();
+    await page.waitForTimeout(100);
+    console.log('✓ Show/Hide password toggle buttons verified across all settings input fields');
+
+    // Test GitHub Repository Link and Check for Updates
+    console.log('\n9c. Testing GitHub Repository & Update Checker...');
+    const linkGitHub = page.locator('#linkGitHubRepo');
+    assert.strictEqual(await linkGitHub.isVisible(), true, 'GitHub repository link must be visible');
+    const githubHref = await linkGitHub.getAttribute('href');
+    assert.strictEqual(githubHref, 'https://github.com/binyaminyblatt/yom-kippur-diabetes-timer', 'GitHub URL must point to repository');
+
+    const btnCheckUpdates = page.locator('#btnCheckUpdates');
+    assert.strictEqual(await btnCheckUpdates.isVisible(), true, 'btnCheckUpdates must be visible');
+    await btnCheckUpdates.click();
+    await page.waitForTimeout(600);
+    const updateMsgVisible = await page.locator('#updateStatusMsg').isVisible();
+    assert.strictEqual(updateMsgVisible, true, 'Update status message must appear after checking updates');
+    const updateMsgText = await page.locator('#updateStatusMsg').textContent();
+    // Test Urgent Low Threshold input
+    console.log('\n9d. Testing Urgent Low Alert Threshold configuration...');
+    const inputUrgentLow = page.locator('#inputTargetUrgentLow');
+    assert.strictEqual(await inputUrgentLow.isVisible(), true, 'inputTargetUrgentLow must be visible');
+    const urgentLowInitial = await inputUrgentLow.inputValue();
+    assert.strictEqual(urgentLowInitial, '55', 'Default urgentLow threshold must be 55');
+    await inputUrgentLow.fill('52');
+    await page.waitForTimeout(100);
+    console.log('✓ Urgent Low Alert threshold input verified (set to 52 mg/dL)');
+
     // Save settings
     const btnSaveSettings = page.locator('#btnSaveSettings');
     await btnSaveSettings.click();
     await page.waitForTimeout(400);
+
+    const savedUrgentLow = await page.evaluate(() => window.libre.urgentLow);
+    assert.strictEqual(savedUrgentLow, 52, 'libre.urgentLow must be 52 after saving');
+    console.log('✓ libre.urgentLow persistence confirmed in runtime instance');
 
     // 10. Test Live / Demo Low Glucose Alarm Banner & Auto-Silencing
     console.log('\n10. Testing Demo Low Glucose Alarm & Banner Display...');

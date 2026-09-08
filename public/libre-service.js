@@ -3,8 +3,8 @@
  */
 class LibreService {
   constructor(options = {}) {
-    this.isEnabled = options.isEnabled !== undefined ? options.isEnabled : true;
-    this.isDemo = options.isDemo !== undefined ? options.isDemo : true;
+    this.isEnabled = options.isEnabled !== undefined ? options.isEnabled : false;
+    this.isDemo = options.isDemo !== undefined ? options.isDemo : false;
     this.unit = options.unit || 'mgdl'; // 'mgdl' or 'mmol'
     this.region = options.region || 'US';
     this.email = '';
@@ -24,9 +24,9 @@ class LibreService {
     this.urgentLow = 55;
 
     // Callbacks
-    this.onReading = options.onReading || (() => {});
-    this.onStatusChange = options.onStatusChange || (() => {});
-    this.onError = options.onError || (() => {});
+    this.onReading = options.onReading || (() => { });
+    this.onStatusChange = options.onStatusChange || (() => { });
+    this.onError = options.onError || (() => { });
 
     this.loadSettings();
   }
@@ -37,15 +37,15 @@ class LibreService {
       const saved = localStorage.getItem('yom_kippur_cgm_settings');
       if (saved) {
         const parsed = JSON.parse(saved);
-        this.isEnabled = parsed.isEnabled !== undefined ? parsed.isEnabled : true;
-        this.isDemo = parsed.isDemo !== undefined ? parsed.isDemo : true;
+        this.isEnabled = parsed.isEnabled !== undefined ? parsed.isEnabled : false;
+        this.isDemo = parsed.isDemo !== undefined ? parsed.isDemo : false;
         this.unit = parsed.unit || 'mgdl';
         this.region = parsed.region || 'US';
         this.email = parsed.email || '';
         this.password = parsed.password || '';
-        this.targetLow = parsed.targetLow || 70;
-        this.targetHigh = parsed.targetHigh || 180;
-        this.urgentLow = parsed.urgentLow || 55;
+        this.targetLow = parsed.targetLow !== undefined ? parsed.targetLow : 70;
+        this.targetHigh = parsed.targetHigh !== undefined ? parsed.targetHigh : 180;
+        this.urgentLow = parsed.urgentLow !== undefined ? parsed.urgentLow : 55;
       }
     } catch (e) {
       console.warn('Failed to load CGM settings:', e);
@@ -134,9 +134,13 @@ class LibreService {
     }
 
     if (!this.email || !this.password) {
-      this.onError('Please enter LibreLinkUp email & password in Settings, or use Demo Mode.');
-      this.isDemo = true;
-      await this.start();
+      this.isConnected = false;
+      this.onStatusChange({
+        isEnabled: true,
+        isConnected: false,
+        isDemo: false,
+        statusText: 'Enter Credentials in Settings'
+      });
       return;
     }
 
@@ -145,9 +149,13 @@ class LibreService {
       await this.fetchLiveReadings();
       this.pollTimerId = setInterval(() => this.fetchLiveReadings(), this.pollIntervalSeconds * 1000);
     } else {
-      this.onError('LibreLinkUp login failed. Falling back to Demo Mode.');
-      this.isDemo = true;
-      await this.start();
+      this.isConnected = false;
+      this.onStatusChange({
+        isEnabled: true,
+        isConnected: false,
+        isDemo: false,
+        statusText: 'Connection Failed'
+      });
     }
   }
 
@@ -296,7 +304,7 @@ class LibreService {
           if (relogged) {
             return await this.fetchLiveReadings(true);
           }
-        } catch (e) {}
+        } catch (e) { }
       }
       this.onError(`Failed to update CGM: ${err.message}`);
     }

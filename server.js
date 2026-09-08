@@ -105,6 +105,89 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Helper: Locate persistent settings JSON path across OS platforms
+function getSettingsFilePath() {
+  if (process.env.YKT_CONFIG_DIR) {
+    return path.join(process.env.YKT_CONFIG_DIR, 'settings.json');
+  }
+  const home = process.env.HOME || process.env.USERPROFILE || '/tmp';
+  let baseDir;
+  if (process.platform === 'win32') {
+    baseDir = process.env.APPDATA || path.join(home, 'AppData', 'Roaming');
+  } else if (process.platform === 'darwin') {
+    baseDir = path.join(home, 'Library', 'Application Support');
+  } else {
+    baseDir = process.env.XDG_CONFIG_HOME || path.join(home, '.config');
+  }
+  return path.join(baseDir, 'yom-kippur-diabetes-timer', 'settings.json');
+}
+
+// Read settings from disk with fallback to defaults
+function readPersistedSettings() {
+  try {
+    const filePath = getSettingsFilePath();
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.warn('[Settings] Failed to read settings file:', err.message);
+  }
+  return {};
+}
+
+// Write settings to disk atomically
+function writePersistedSettings(settingsObj) {
+  try {
+    const filePath = getSettingsFilePath();
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const current = readPersistedSettings();
+    const merged = { ...current, ...settingsObj, updatedAt: new Date().toISOString() };
+    const tempPath = `${filePath}.tmp.${Date.now()}`;
+    fs.writeFileSync(tempPath, JSON.stringify(merged, null, 2), 'utf8');
+    fs.renameSync(tempPath, filePath);
+    return merged;
+  } catch (err) {
+    console.error('[Settings] Failed to write settings file:', err.message);
+    throw err;
+  }
+}
+
+// API Config Endpoint (returns dev mode status & system environment info)
+app.get('/api/config', (req, res) => {
+  const isDev = process.env.DEV_MODE === 'true' || process.env.NODE_ENV === 'development';
+  res.json({
+    success: true,
+    isDev: Boolean(isDev),
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    systemCA: getCaSummary()
+  });
+});
+
+// API Settings Endpoints (Load & Save app settings across runs)
+app.get('/api/settings', (req, res) => {
+  try {
+    const settings = readPersistedSettings();
+    res.json({ success: true, settings });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/settings', (req, res) => {
+  try {
+    const incoming = req.body || {};
+    const updated = writePersistedSettings(incoming);
+    res.json({ success: true, settings: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // System CA Trust Store Status Endpoint
 app.get('/api/system-ca/status', (req, res) => {
   res.json({
