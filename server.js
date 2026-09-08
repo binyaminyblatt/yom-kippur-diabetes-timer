@@ -7,6 +7,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const pkg = require('./package.json');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -99,6 +100,7 @@ setInterval(() => {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
+    version: pkg.version,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     systemCA: getCaSummary()
@@ -161,6 +163,7 @@ app.get('/api/config', (req, res) => {
   const isDev = process.env.DEV_MODE === 'true' || process.env.NODE_ENV === 'development';
   res.json({
     success: true,
+    version: pkg.version,
     isDev: Boolean(isDev),
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
@@ -262,6 +265,131 @@ app.get('/api/languages', (req, res) => {
   } catch (err) {
     console.error('Error discovering languages:', err);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- High-Fidelity Neural TTS Service with Disk Cache & LRU Cleanup ---
+const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
+
+const TTS_CACHE_DIR = path.join(__dirname, 'cache', 'tts');
+if (!fs.existsSync(TTS_CACHE_DIR)) {
+  fs.mkdirSync(TTS_CACHE_DIR, { recursive: true });
+}
+
+// Resolve Microsoft Azure Neural voice strictly from the locale file's _meta.neuralVoice
+function resolveNeuralVoice(lang) {
+  const l = (lang || 'en').trim();
+  const baseLang = l.split(/[-_]/)[0].toLowerCase();
+
+  // 1. Try reading _meta.neuralVoice from public/locales/<lang>.json
+  try {
+    const localePath = path.join(__dirname, 'public', 'locales', `${baseLang}.json`);
+    if (fs.existsSync(localePath)) {
+      const localeData = JSON.parse(fs.readFileSync(localePath, 'utf8'));
+      if (localeData._meta && localeData._meta.neuralVoice) {
+        return localeData._meta.neuralVoice;
+      }
+    }
+  } catch (e) {}
+
+  // 2. Fallback to default en.json _meta.neuralVoice
+  try {
+    const enPath = path.join(__dirname, 'public', 'locales', 'en.json');
+    if (fs.existsSync(enPath)) {
+      const enData = JSON.parse(fs.readFileSync(enPath, 'utf8'));
+      if (enData._meta && enData._meta.neuralVoice) {
+        return enData._meta.neuralVoice;
+      }
+    }
+  } catch (e) {}
+
+  return 'en-US-JennyNeural';
+}
+
+// Manage cache size: enforce max 50 items and max 5MB
+function pruneTtsCache() {
+  try {
+    const files = fs.readdirSync(TTS_CACHE_DIR)
+      .map(f => {
+        const fp = path.join(TTS_CACHE_DIR, f);
+        try {
+          const stats = fs.statSync(fp);
+          return { file: f, path: fp, mtime: stats.mtimeMs, size: stats.size };
+        } catch (e) {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    if (files.length > 50) {
+      files.sort((a, b) => a.mtime - b.mtime);
+      const toDelete = files.slice(0, files.length - 50);
+      for (const item of toDelete) {
+        try { fs.unlinkSync(item.path); } catch (e) {}
+      }
+    }
+  } catch (e) {}
+}
+
+app.get('/api/tts', async (req, res) => {
+  const text = (req.query.text || '').trim();
+  const lang = (req.query.lang || 'en-US').trim();
+
+  if (!text) {
+    return res.status(400).json({ success: false, error: 'Query parameter "text" is required.' });
+  }
+
+  // Cap max text length for safety
+  if (text.length > 500) {
+    return res.status(400).json({ success: false, error: 'Text exceeds maximum limit of 500 characters.' });
+  }
+
+  const voice = req.query.voice || resolveNeuralVoice(lang);
+  const hash = crypto.createHash('sha256').update(`${voice}:${text}`).digest('hex');
+  const cacheFile = path.join(TTS_CACHE_DIR, `${hash}.mp3`);
+
+  // 1. Check disk cache
+  if (fs.existsSync(cacheFile)) {
+    try {
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader('X-TTS-Source', 'cache');
+      return fs.createReadStream(cacheFile).pipe(res);
+    } catch (e) {}
+  }
+
+  // 2. Synthesize via msedge-tts
+  const tts = new MsEdgeTTS();
+  try {
+    await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+    const { audioStream } = tts.toStream(text);
+    const chunks = [];
+
+    audioStream.on('data', chunk => chunks.push(chunk));
+    audioStream.on('end', () => {
+      try { tts.close(); } catch (e) {}
+      const buffer = Buffer.concat(chunks);
+      if (buffer.length > 0) {
+        try {
+          fs.writeFileSync(cacheFile, buffer);
+          pruneTtsCache();
+        } catch (e) {}
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('X-TTS-Source', 'neural-network');
+        return res.send(buffer);
+      } else {
+        return res.status(502).json({ success: false, error: 'Empty audio response from TTS service.' });
+      }
+    });
+
+    audioStream.on('error', err => {
+      try { tts.close(); } catch (e) {}
+      return res.status(502).json({ success: false, error: 'TTS synthesis error: ' + err.message });
+    });
+  } catch (err) {
+    try { tts.close(); } catch (e) {}
+    return res.status(500).json({ success: false, error: 'TTS initialization failed: ' + err.message });
   }
 });
 

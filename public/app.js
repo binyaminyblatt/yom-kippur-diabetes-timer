@@ -1442,8 +1442,10 @@ document.addEventListener('DOMContentLoaded', () => {
       audio.init();
       const prevSpeech = audio.speechEnabled;
       audio.setSpeech(true);
-      const isHe = window.i18n && window.i18n.getCurrentLanguage() === 'he';
-      audio.speak(isHe ? 'בדיקת התראה קולית: התראת סוכר נמוך' : 'Glucose voice alert test: Low glucose alert');
+      const testMsg = (window.i18n && typeof window.i18n.t === 'function')
+        ? window.i18n.t('alerts.speech.testVoiceAlert', { defaultValue: 'Glucose voice alert test: Low glucose alert' })
+        : 'Glucose voice alert test: Low glucose alert';
+      audio.speak(testMsg, null, 'test-voice-alert');
       if (!prevSpeech && checkSpeech && !checkSpeech.checked) {
         setTimeout(() => {
           if (!checkSpeech.checked) audio.setSpeech(false);
@@ -1843,7 +1845,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnCheckUpdates = document.getElementById('btnCheckUpdates');
   const updateStatusMsg = document.getElementById('updateStatusMsg');
   const linkGitHubRepo = document.getElementById('linkGitHubRepo');
-  const CURRENT_APP_VERSION = 'v1.0.1';
+  let currentAppVersion = '1.0.2';
+
+  async function loadAppVersion() {
+    if (window.electronAPI && window.electronAPI.version) {
+      currentAppVersion = window.electronAPI.version;
+    } else {
+      try {
+        const resp = await fetch('/api/config');
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.version) {
+            currentAppVersion = data.version;
+          }
+        }
+      } catch (e) {}
+    }
+    const formatted = currentAppVersion.startsWith('v') ? currentAppVersion : `v${currentAppVersion}`;
+    document.querySelectorAll('.about-app-version, #aboutAppVersion').forEach(el => {
+      el.textContent = formatted;
+    });
+  }
+  loadAppVersion();
 
   function isNewerVersion(latest, current) {
     const lParts = latest.split('.').map(Number);
@@ -1873,7 +1896,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await response.json();
       const latestTag = data.tag_name || data.name || '';
       const cleanLatest = latestTag.replace(/^v/, '').trim();
-      const cleanCurrent = CURRENT_APP_VERSION.replace(/^v/, '').trim();
+      const cleanCurrent = currentAppVersion.replace(/^v/, '').trim();
+      const formattedCurrent = currentAppVersion.startsWith('v') ? currentAppVersion : `v${currentAppVersion}`;
 
       if (cleanLatest && cleanLatest !== cleanCurrent && isNewerVersion(cleanLatest, cleanCurrent)) {
         updateStatusMsg.className = 'update-status-msg status-update-available';
@@ -1882,7 +1906,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatusMsg.innerHTML = `${msg} <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" class="update-dl-link" style="color: #38bdf8; text-decoration: underline; font-weight: 600; margin-left: 6px;">Download ${latestTag}</a>`;
       } else {
         updateStatusMsg.className = 'update-status-msg status-success';
-        updateStatusMsg.textContent = window.i18n ? window.i18n.t('settings.about.upToDate', { version: CURRENT_APP_VERSION }) : `✓ You are running the latest version (${CURRENT_APP_VERSION}).`;
+        updateStatusMsg.textContent = window.i18n ? window.i18n.t('settings.about.upToDate', { version: formattedCurrent }) : `✓ You are running the latest version (${formattedCurrent}).`;
       }
     } catch (err) {
       console.warn('Update check error:', err);

@@ -77,9 +77,9 @@ for (const config of FONT_CONFIGS) {
         }
       }
 
-      // Rewrite CSS URLs to point to fonts/ directory relative to fonts.css
-      // Also drop fallback .woff if .woff2 is present for modern lightweight bundling
-      weightCss = weightCss.replace(/url\(\.\/files\/([^)]+)\)/g, "url('./fonts/$1')");
+      // Strip .woff fallback url lines so fonts.css cleanly references bundled .woff2 files
+      weightCss = weightCss.replace(/,\s*url\(\.\/files\/[^)]+\.woff\)\s*format\(['"]woff['"]\)/g, '');
+      weightCss = weightCss.replace(/url\(\.\/files\/([^)]+\.woff2)\)/g, "url('./fonts/$1')");
 
       fullCssContent += weightCss + '\n\n';
     }

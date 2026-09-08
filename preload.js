@@ -1,8 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const pkg = require('./package.json');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
   isDev: process.env.DEV_MODE === 'true',
+  version: pkg.version,
   setLocked: (isLocked) => {
     try {
       ipcRenderer.send('app:set-locked', !!isLocked);

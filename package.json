@@ -1,6 +1,6 @@
 {
   "name": "yom-kippur-diabetes-timer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Yom Kippur Diabetes Eating Interval (Achila l'Shiurim) Timer with LibreLinkUp CGM Integration and Airplane Bing-Bong Chimes",
   "main": "main.js",
   "scripts": {
@@ -15,10 +15,14 @@
     "build:mac:all": "electron-builder --mac --universal --x64 --arm64",
     "build:win": "electron-builder --win",
     "build:linux": "electron-builder --linux",
-    "test": "node tests/test-app.js",
+    "test": "node tests/test-compliance.js && node tests/test-app.js",
+    "test:compliance": "node tests/test-compliance.js",
+    "test:compliance:watch": "node --watch tests/test-compliance.js",
     "test:e2e": "node tests/test-e2e.js",
     "icons": "node scripts/generate-icons.js",
-    "bundle:fonts": "node scripts/bundle-fonts.js"
+    "bundle:fonts": "node scripts/bundle-fonts.js",
+    "bundle:speech": "node scripts/bundle-readium-speech.js",
+    "generate:audio": "node scripts/generate-alert-audio.js"
   },
   "keywords": [
     "yom-kippur",
@@ -44,18 +48,21 @@
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/outfit": "^5.3.0",
     "@fontsource/rubik": "^5.3.0",
+    "@readium/speech": "^0.8.1",
     "axios": "^1.7.9",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "i18next": "^24.2.3",
     "kosher-zmanim": "^0.9.0",
-    "librelinkup-api-client": "^1.0.2"
+    "librelinkup-api-client": "^1.0.2",
+    "msedge-tts": "^2.0.7"
   },
   "devDependencies": {
     "@actions/artifact": "^2.2.0",
     "concurrently": "^9.1.2",
     "electron": "^34.2.0",
     "electron-builder": "^25.1.8",
+    "esbuild": "^0.28.2",
     "playwright": "^1.62.1",
     "sharp": "^0.35.4"
   },

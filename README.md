@@ -1,6 +1,6 @@
 # 🕯️ Yom Kippur Diabetes Interval Timer & LibreLinkUp CGM
 
-[**English**](README.md) | [**עברית (Hebrew)**](README.he.md) | [**Translation Guide**](TRANSLATION_GUIDE.md)
+[**English**](README.md) | [**עברית (Hebrew)**](README.he.md) | [**Translation Guide**](TRANSLATION_GUIDE.md) | [**Developer Guidelines**](DEVELOPER_GUIDELINES.md)
 
 An automated, unattended **Eating Interval (*Achila l'Shiurim*) Timer and Continuous Glucose Monitor (CGM) Display** designed specifically for individuals with diabetes or medical needs who must consume measured portions on **Yom Kippur** (*Pikuach Nefesh*) without operating electronics during the fast.
 
@@ -83,23 +83,33 @@ Operating phones, clicking buttons, or touching electronics is prohibited on Yom
 
 ```
 yom_kiper_timer/
+├── DEVELOPER_GUIDELINES.md  # Project guidelines, fail-safe UI mandates, and risk table
+├── .agents/rules/AGENTS.md  # Mandatory engineering rules for AI coding assistants
+├── TRANSLATION_GUIDE.md     # Localization guide and dynamic audio generation instructions
 ├── main.js                  # Electron main process (Fullscreen, PowerBlocker, Escape interception)
-├── server.js                # Express backend (LibreLinkUp proxy, Zmanim engine, Demo state)
+├── server.js                # Express backend (LibreLinkUp proxy, Zmanim engine, /api/tts endpoint)
+├── system-ca.js             # Automated root/intermediate CA trust for kosher internet filters
 ├── package.json             # Scripts, dependencies, and electron-builder configs
 ├── public/                  # Frontend web application
 │   ├── index.html           # Semantic HTML5 layout and modal dialogs
 │   ├── styles.css           # Glassmorphic dark UI, animations, responsive design
 │   ├── app.js               # Main UI controller, event delegation, lock shield
 │   ├── timer-engine.js      # Dual-track high-precision interval clock
-│   ├── audio-engine.js      # Web Audio harmonic chime synthesizers
+│   ├── audio-engine.js      # 3-tier speech synthesis & harmonic chime synthesizers
 │   ├── libre-service.js     # LibreLinkUp client & polling manager
 │   ├── chart-renderer.js    # Canvas/SVG 12-hour glucose trend chart
-│   └── icon.svg             # Application vector icon
+│   ├── i18n.js              # Localization manager and language selector
+│   ├── icon.svg             # Application vector icon
+│   ├── audio/alerts/        # Pre-bundled compact offline MP3 alert files
+│   └── locales/             # JSON locale dictionaries (en.json, he.json, template.json)
 ├── tests/
 │   ├── test-app.js          # Unit tests (Timer math, PIN logic, Zmanim, Endpoints)
+│   ├── test-i18n.js         # Dictionary key parity validation test
 │   └── test-e2e.js          # Playwright end-to-end automated testing suite
 └── scripts/
-    └── generate-icons.js    # Multi-resolution icon generator for packaging
+    ├── generate-icons.js    # Multi-resolution icon generator for packaging
+    ├── generate-alert-audio.js # Pre-rendered alert MP3 audio generator
+    └── bundle-readium-speech.js # Local WebSpeech voice manager bundler
 ```
 
 ---
@@ -261,6 +271,16 @@ The application features full multi-language support (i18n) across both the UI a
   2. Translate the string values and set the `_meta` field.
   3. **Done!** The system automatically discovers the new language and auto-populates all language selector dropdowns without modifying any code.
 - For complete step-by-step instructions, see the [**Translation Guide (TRANSLATION_GUIDE.md)**](TRANSLATION_GUIDE.md).
+
+---
+
+## 📖 Project Guidelines & Engineering Standards
+
+For developers, contributors, and AI assistants working on this codebase:
+
+- [**Developer Guidelines (DEVELOPER_GUIDELINES.md)**](DEVELOPER_GUIDELINES.md): Comprehensive architectural rules, halachic/medical safety invariants, 3-tier speech cascade, fail-safe modal auto-close requirements, and risk mitigation table.
+- [**AI Assistant Rules (.agents/rules/AGENTS.md)**](.agents/rules/AGENTS.md): Mandatory constraints, safety invariants, and testing mandates for all AI coding assistants.
+- [**Translation Guide (TRANSLATION_GUIDE.md)**](TRANSLATION_GUIDE.md): Instructions for adding new language dictionaries, `_meta` configuration schemas, and dynamic audio alert generation.
 
 ---
 

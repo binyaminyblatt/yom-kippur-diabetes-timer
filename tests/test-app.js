@@ -89,6 +89,182 @@ function testAudioEngineLogic() {
   console.log('✓ AudioEngine, 15-repeat pulse math, and speech synthesis handlers verified successfully!');
 }
 
+// Test @readium/speech Bundle & Intelligent Voice Ranking
+async function testReadiumSpeechAndVoiceRanking() {
+  console.log('\n--- Testing @readium/speech Bundle & Voice Quality Ranking ---');
+  const AudioEngine = require(path.join(__dirname, '../public/audio-engine.js'));
+  const bundlePath = path.join(__dirname, '../public/vendor/readium-speech.bundle.js');
+
+  // 1. Verify bundle exists and is not empty
+  assert.ok(fs.existsSync(bundlePath), 'readium-speech.bundle.js must exist in public/vendor/');
+  const bundleStats = fs.statSync(bundlePath);
+  assert.ok(bundleStats.size > 50000, 'readium-speech.bundle.js should be bundled with language metadata');
+
+  // 2. Test AudioEngine _resolveBestVoice logic with mocked macOS voices
+  const engine = new AudioEngine();
+  const mockMacVoices = [
+    { name: 'Albert', lang: 'en-US', voiceURI: 'com.apple.speech.synthesis.voice.Albert', localService: true },
+    { name: 'Alex', lang: 'en-US', voiceURI: 'com.apple.speech.synthesis.voice.Alex', localService: true },
+    { name: 'Fred', lang: 'en-US', voiceURI: 'com.apple.speech.synthesis.voice.Fred', localService: true },
+    { name: 'Bad News', lang: 'en-US', voiceURI: 'com.apple.speech.synthesis.voice.BadNews', localService: true },
+    { name: 'Samantha', lang: 'en-US', voiceURI: 'com.apple.speech.synthesis.voice.Samantha', localService: true },
+    { name: 'Samantha (Enhanced)', lang: 'en-US', voiceURI: 'com.apple.speech.synthesis.voice.Samantha.premium', localService: true },
+    { name: 'Google US English', lang: 'en-US', voiceURI: 'Google US English', localService: false },
+    { name: 'Carmit', lang: 'he-IL', voiceURI: 'com.apple.speech.synthesis.voice.Carmit', localService: true },
+    { name: 'Carmit (Enhanced)', lang: 'he-IL', voiceURI: 'com.apple.speech.synthesis.voice.Carmit.premium', localService: true }
+  ];
+
+  engine.voices = mockMacVoices;
+
+  // Mock global window and speechSynthesis
+  global.window = {
+    speechSynthesis: {
+      getVoices: () => mockMacVoices,
+      onvoiceschanged: null,
+      speak: () => {},
+      cancel: () => {},
+      resume: () => {},
+      paused: false
+    }
+  };
+
+  // Test English best voice selection (must NOT be Alex, Fred, or Albert)
+  const bestEnVoice = await engine._resolveBestVoice('en');
+  assert.ok(bestEnVoice, 'Should find a best English voice');
+  assert.notStrictEqual(bestEnVoice.name, 'Alex', 'Must not select Alex as best English voice');
+  assert.notStrictEqual(bestEnVoice.name, 'Fred', 'Must not select Fred as best English voice');
+  assert.notStrictEqual(bestEnVoice.name, 'Albert', 'Must not select Albert as best English voice');
+  assert.ok(
+    bestEnVoice.name === 'Samantha (Enhanced)' || bestEnVoice.name === 'Google US English',
+    `Expected Samantha (Enhanced) or Google US English, got: ${bestEnVoice.name}`
+  );
+
+  // Test Hebrew best voice selection (must prioritize Enhanced Carmit)
+  const bestHeVoice = await engine._resolveBestVoice('he');
+  assert.ok(bestHeVoice, 'Should find a best Hebrew voice');
+  assert.strictEqual(bestHeVoice.name, 'Carmit (Enhanced)', 'Must select Carmit (Enhanced) for Hebrew');
+
+  // Test Linux / Speech-Dispatcher voice set
+  const mockLinuxVoices = [
+    { name: 'default', lang: 'en-US', voiceURI: 'default', localService: true },
+    { name: 'English (America)', lang: 'en-US', voiceURI: 'English (America)', localService: true },
+    { name: 'Hebrew (Israel)', lang: 'he-IL', voiceURI: 'Hebrew (Israel)', localService: true }
+  ];
+  engine.voices = mockLinuxVoices;
+  global.window.speechSynthesis.getVoices = () => mockLinuxVoices;
+
+  const linuxEn = await engine._resolveBestVoice('en');
+  assert.ok(linuxEn, 'Should resolve Linux English voice');
+  const linuxHe = await engine._resolveBestVoice('he');
+  assert.ok(linuxHe, 'Should resolve Linux Hebrew voice');
+  assert.strictEqual(linuxHe.name, 'Hebrew (Israel)');
+
+  // 3. Test Dynamic Region Resolution for Any Language (e.g., Spanish, French, German)
+  const esRegion = engine._resolveLanguageRegion('es');
+  assert.strictEqual(esRegion.baseLang, 'es');
+  assert.strictEqual(esRegion.targetRegion, 'es-ES');
+
+  const esMxRegion = engine._resolveLanguageRegion('es-MX');
+  assert.strictEqual(esMxRegion.baseLang, 'es');
+  assert.strictEqual(esMxRegion.targetRegion, 'es-MX');
+
+  const frRegion = engine._resolveLanguageRegion('fr');
+  assert.strictEqual(frRegion.baseLang, 'fr');
+  assert.strictEqual(frRegion.targetRegion, 'fr-FR');
+
+  const heRegion = engine._resolveLanguageRegion('he');
+  assert.strictEqual(heRegion.baseLang, 'he');
+  assert.strictEqual(heRegion.targetRegion, 'he-IL');
+
+  // 4. Test Spanish voice ranking & selection
+  const mockSpanishVoices = [
+    { name: 'espeak Spanish', lang: 'es', voiceURI: 'espeak-es', localService: true },
+    { name: 'Mónica', lang: 'es-ES', voiceURI: 'com.apple.speech.synthesis.voice.monica', localService: true },
+    { name: 'Jorge (Enhanced)', lang: 'es-ES', voiceURI: 'com.apple.speech.synthesis.voice.jorge.premium', localService: true },
+    { name: 'Microsoft Elvira Online (Natural) - Spanish (Spain)', lang: 'es-ES', voiceURI: 'Microsoft Elvira', localService: false }
+  ];
+  engine.voices = mockSpanishVoices;
+  global.window.speechSynthesis.getVoices = () => mockSpanishVoices;
+
+  const bestSpanishVoice = await engine._resolveBestVoice('es');
+  assert.ok(bestSpanishVoice, 'Must resolve Spanish voice');
+  assert.notStrictEqual(bestSpanishVoice.name, 'espeak Spanish', 'Must not select espeak as best voice when enhanced voice exists');
+  assert.ok(
+    bestSpanishVoice.name.includes('Natural') || bestSpanishVoice.name.includes('Enhanced'),
+    `Expected Natural or Enhanced Spanish voice, got: ${bestSpanishVoice.name}`
+  );
+
+  // 5. Verify locale files contain speech announcement keys
+  const enLocale = JSON.parse(fs.readFileSync(path.join(__dirname, '../public/locales/en.json'), 'utf8'));
+  const heLocale = JSON.parse(fs.readFileSync(path.join(__dirname, '../public/locales/he.json'), 'utf8'));
+  const tmplLocale = JSON.parse(fs.readFileSync(path.join(__dirname, '../public/locales/template.json'), 'utf8'));
+
+  assert.ok(enLocale.alerts?.speech?.lowGlucose, 'en.json must contain alerts.speech.lowGlucose');
+  assert.ok(enLocale.alerts?.speech?.highGlucose, 'en.json must contain alerts.speech.highGlucose');
+  assert.ok(enLocale.alerts?.speech?.urgentLowGlucose, 'en.json must contain alerts.speech.urgentLowGlucose');
+  assert.ok(enLocale.alerts?.speech?.testVoiceAlert, 'en.json must contain alerts.speech.testVoiceAlert');
+
+  assert.ok(heLocale.alerts?.speech?.lowGlucose, 'he.json must contain alerts.speech.lowGlucose');
+  assert.ok(heLocale.alerts?.speech?.urgentLowGlucose, 'he.json must contain alerts.speech.urgentLowGlucose');
+  assert.ok(tmplLocale.alerts?.speech?.lowGlucose, 'template.json must contain alerts.speech.lowGlucose');
+
+  // 6. Test Pre-bundled Fallback Audio Files & Dynamic Generator
+  const { getAlertsToGenerate } = require(path.join(__dirname, '../scripts/generate-alert-audio.js'));
+  const dynamicAlerts = getAlertsToGenerate();
+  assert.ok(dynamicAlerts.length >= 8, 'getAlertsToGenerate must discover all alerts from locale files');
+  assert.ok(dynamicAlerts.some(a => a.lang === 'en' && a.voice === 'en-US-JennyNeural'), 'Must detect en _meta.neuralVoice');
+  assert.ok(dynamicAlerts.some(a => a.lang === 'he' && a.voice === 'he-IL-AvriNeural'), 'Must detect he _meta.neuralVoice');
+
+  const alertsDir = path.join(__dirname, '../public/audio/alerts');
+  const expectedAudioFiles = [
+    'low-glucose-en.mp3', 'high-glucose-en.mp3', 'urgent-low-glucose-en.mp3', 'test-voice-alert-en.mp3',
+    'low-glucose-he.mp3', 'high-glucose-he.mp3', 'urgent-low-glucose-he.mp3', 'test-voice-alert-he.mp3'
+  ];
+  for (const f of expectedAudioFiles) {
+    const fp = path.join(alertsDir, f);
+    assert.ok(fs.existsSync(fp), `Pre-bundled alert audio ${f} must exist in public/audio/alerts/`);
+    const sz = fs.statSync(fp).size;
+    assert.ok(sz > 5000 && sz < 100000, `Audio file ${f} size (${sz} B) must be compact (<100KB)`);
+  }
+
+  // 7. Test i18n integration with AudioEngine speak call
+  let lastSpokenText = '';
+  global.SpeechSynthesisUtterance = class {
+    constructor(text) {
+      this.text = text;
+      this.rate = 1;
+      this.pitch = 1;
+      this.volume = 1;
+      this.lang = 'en-US';
+      this.voice = null;
+    }
+  };
+  global.window.SpeechSynthesisUtterance = global.SpeechSynthesisUtterance;
+  global.window.speechSynthesis.speak = (utterance) => {
+    lastSpokenText = utterance.text;
+  };
+  global.window.i18n = {
+    getCurrentLanguage: () => 'es',
+    getAvailableLanguages: () => ['en', 'he', 'es'],
+    t: (key, opts) => {
+      if (key === 'alerts.speech.urgentLowGlucose') return 'Alerta crítica de glucosa baja. Preservar la vida anula el ayuno.';
+      return opts?.defaultValue || key;
+    }
+  };
+
+  engine.setSpeech(true);
+  engine.playUrgentLowAlert(1);
+  await new Promise(resolve => setTimeout(resolve, 700));
+
+  assert.strictEqual(
+    lastSpokenText,
+    'Alerta crítica de glucosa baja. Preservar la vida anula el ayuno.',
+    'AudioEngine must speak the localized string returned from window.i18n.t()'
+  );
+
+  console.log('✓ @readium/speech bundle, pre-bundled offline audio assets & dynamic locale ranking verified successfully!');
+}
+
 // Test Passcode and Lockout Logic
 function testLockAndPasscodeLogic() {
   console.log('\n--- Testing Passcode & Cat Lockout Mechanics ---');
@@ -342,6 +518,24 @@ async function testServerEndpoints() {
     assert.ok(logsResp.data.total >= 3, 'Must contain logged glucose requests');
     console.log(`✓ /api/libre/logs returned ${logsResp.data.total} recorded glucose requests`);
 
+    // Test /api/tts Endpoint & Disk Cache
+    console.log('\n--- Testing /api/tts Neural Synthesis & Local Disk Caching ---');
+    const ttsEmpty = await fetchJson('/api/tts');
+    assert.strictEqual(ttsEmpty.status, 400, '/api/tts without text parameter must return 400 Bad Request');
+
+    const ttsLong = await fetchJson('/api/tts?text=' + 'a'.repeat(550));
+    assert.strictEqual(ttsLong.status, 400, '/api/tts with oversized text must return 400 Bad Request');
+
+    // Test synthesis call
+    const ttsRes = await fetchJson('/api/tts?text=Test%20Alert&lang=en-US');
+    assert.strictEqual(ttsRes.status, 200, '/api/tts must return 200 OK');
+    console.log('✓ /api/tts successfully synthesized audio with 200 OK');
+
+    // Test second call hits disk cache
+    const ttsCached = await fetchJson('/api/tts?text=Test%20Alert&lang=en-US');
+    assert.strictEqual(ttsCached.status, 200, '/api/tts cache hit must return 200 OK');
+    console.log('✓ /api/tts disk cache verified for repeated synthesis requests');
+
     // Test LibreService unit formatting and null safety
     const LibreService = require(path.join(__dirname, '../public/libre-service.js'));
     const libreService = new LibreService();
@@ -491,8 +685,9 @@ async function testServerEndpoints() {
     const configResp = await fetchJson('/api/config');
     assert.strictEqual(configResp.status, 200, '/api/config must return 200');
     assert.strictEqual(configResp.data.success, true);
+    assert.strictEqual(configResp.data.version, require('../package.json').version, 'version must match package.json');
     assert.strictEqual(typeof configResp.data.isDev, 'boolean', 'isDev must be a boolean');
-    console.log(`✓ /api/config verified (isDev: ${configResp.data.isDev})`);
+    console.log(`✓ /api/config verified (version: ${configResp.data.version}, isDev: ${configResp.data.isDev})`);
 
     // Test /api/settings GET and POST persistence
     const testSettingsPayload = {
@@ -548,6 +743,7 @@ async function runAll() {
   try {
     testTimerLogic();
     testAudioEngineLogic();
+    await testReadiumSpeechAndVoiceRanking();
     testLockAndPasscodeLogic();
     await testServerEndpoints();
     console.log('\n=============================================');

@@ -4,6 +4,12 @@
     "languageName": "INSERT_NATIVE_LANGUAGE_NAME (e.g. 'Français', 'Español', 'ייִדיש')",
     "direction": "ltr_OR_rtl",
     "flag": "INSERT_FLAG_EMOJI (e.g. '🇫🇷', '🇪🇸', '🇮🇱')",
+    "defaultRegion": "INSERT_DEFAULT_BCP47_REGION (e.g. 'es-ES', 'fr-FR', 'de-DE')",
+    "neuralVoice": "INSERT_AZURE_NEURAL_VOICE (e.g. 'es-ES-ElviraNeural', 'fr-FR-DeniseNeural', 'de-DE-KatjaNeural')",
+    "regions": [
+      "INSERT_DEFAULT_BCP47_REGION",
+      "OPTIONAL_ADDITIONAL_REGIONS (e.g. 'es-MX', 'es-US', 'es-AR')"
+    ],
     "instructions": "Replace all string values below with your translations. Keep variable placeholders like {{count}}, {{time}}, {{days}}, {{val}}, {{region}} intact."
   },
   "brand": {
@@ -448,6 +454,14 @@
       "saoPaulo": "São Paulo, Brazil",
       "buenosAires": "Buenos Aires, Argentina",
       "johannesburg": "Johannesburg, South Africa"
+    }
+  },
+  "alerts": {
+    "speech": {
+      "lowGlucose": "Low blood glucose alert. Consume fast-acting carbohydrates according to medical guidance.",
+      "highGlucose": "High blood glucose alert.",
+      "urgentLowGlucose": "Urgent low blood glucose. Life safety overrides fasting.",
+      "testVoiceAlert": "Glucose voice alert test: Low glucose alert"
     }
   }
 }

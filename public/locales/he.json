@@ -3,7 +3,15 @@
     "languageCode": "he",
     "languageName": "עברית (Hebrew)",
     "direction": "rtl",
-    "flag": "🇮🇱"
+    "flag": "🇮🇱",
+    "defaultRegion": "he-IL",
+    "neuralVoice": "he-IL-AvriNeural",
+    "regions": [
+      "he-IL",
+      "iw-IL",
+      "he",
+      "iw"
+    ]
   },
   "brand": {
     "title": "טיימר סוכרת ליום כיפור",
@@ -447,6 +455,14 @@
       "saoPaulo": "סאו פאולו",
       "buenosAires": "בואנוס איירס",
       "johannesburg": "יוהנסבורג"
+    }
+  },
+  "alerts": {
+    "speech": {
+      "lowGlucose": "התראת סוכר נמוך. יש לצרוך פחמימות בהתאם להנחיות רפואיות.",
+      "highGlucose": "התראת סוכר גבוה.",
+      "urgentLowGlucose": "התראת סוכר נמוך קריטי. פיקוח נפש דוחה תענית.",
+      "testVoiceAlert": "בדיקת התראה קולית: התראת סוכר נמוך"
     }
   }
 }

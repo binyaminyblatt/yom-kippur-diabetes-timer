@@ -3,7 +3,19 @@
     "languageCode": "en",
     "languageName": "English",
     "direction": "ltr",
-    "flag": "🇺🇸"
+    "flag": "🇺🇸",
+    "defaultRegion": "en-US",
+    "neuralVoice": "en-US-JennyNeural",
+    "regions": [
+      "en-US",
+      "en-GB",
+      "en-CA",
+      "en-AU",
+      "en-NZ",
+      "en-IE",
+      "en-ZA",
+      "en-IN"
+    ]
   },
   "brand": {
     "title": "Yom Kippur Diabetes Timer",
@@ -447,6 +459,14 @@
       "saoPaulo": "São Paulo, Brazil",
       "buenosAires": "Buenos Aires, Argentina",
       "johannesburg": "Johannesburg, South Africa"
+    }
+  },
+  "alerts": {
+    "speech": {
+      "lowGlucose": "Low blood glucose alert. Consume fast-acting carbohydrates according to medical guidance.",
+      "highGlucose": "High blood glucose alert.",
+      "urgentLowGlucose": "Urgent low blood glucose. Life safety overrides fasting.",
+      "testVoiceAlert": "Glucose voice alert test: Low glucose alert"
     }
   }
 }

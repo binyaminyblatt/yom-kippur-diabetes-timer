@@ -1,6 +1,6 @@
 # 🕯️ טיימר סוכרת ליום כיפור וניטור סוכר רציף LibreLinkUp
 
-[**English**](README.md) | [**עברית**](README.he.md) | [**מדריך תרגום (Translation Guide)**](TRANSLATION_GUIDE.md)
+[**English**](README.md) | [**עברית**](README.he.md) | [**מדריך תרגום (Translation Guide)**](TRANSLATION_GUIDE.md) | [**הנחיות פיתוח (Developer Guidelines)**](DEVELOPER_GUIDELINES.md)
 
 מערכת אוטומטית עצמאית לניהול **טיימר אכילה ושתייה לשיעורים** ותצוגת **מד סוכר רציף (CGM)**, המיועדת במיוחד לחולי סוכרת ולאנשים בעלי צרכים רפואיים הנדרשים לאכול או לשתות ב**יום הכיפורים** (*פיקוח נפש*) ללא מגע במכשירים אלקטרוניים במהלך הצום.
 
@@ -85,19 +85,24 @@
 
 ```
 yom_kiper_timer/
+├── DEVELOPER_GUIDELINES.md  # הנחיות פיתוח, עקרון ה-Fail-Safe וטבלת סיכונים
+├── .agents/rules/AGENTS.md  # כללי הנדסה ומגבלות מחייבות לעוזרי AI
+├── TRANSLATION_GUIDE.md     # מדריך מלא להוספת שפות חדשות ומחולל קובצי שמע
 ├── main.js                  # תהליך ראשי של Electron (מסך מלא, חסימת שינה, לכידת Escape)
-├── server.js                # שרת Express (פרוקסי ל-LibreLinkUp, חישוב זמני הלכה, הדמיה)
+├── server.js                # שרת Express (פרוקסי ל-LibreLinkUp, חישוב זמני הלכה, שירות /api/tts)
+├── system-ca.js             # תמיכה אוטומטית בתעודות CA עבור אינטרנט מסונן (נטפרי וכו')
 ├── package.json             # הגדרות תלויות, סקריפטים ו-electron-builder
-├── TRANSLATION_GUIDE.md     # מדריך מלא להוספת שפות חדשות
 ├── public/                  # יישום ממשק משתמש (Frontend)
 │   ├── index.html           # שלד HTML5 נגיש ודיאלוגים מודאליים
 │   ├── styles.css           # עיצוב Dark Glassmorphism רספונסיבי
 │   ├── app.js               # בקר ממשק ראשי, ניהול אירועים ומגן נעילה
 │   ├── timer-engine.js      # מנוע שעון מדויק למרווחים דו-ערוציים
-│   ├── audio-engine.js      # מחולל צלילים הרמוניים מבוסס Web Audio
+│   ├── audio-engine.js      # מנוע הקראה קולית 3-שלבי וצלילים הרמוניים
 │   ├── libre-service.js     # שירות תקשורת מול LibreLinkUp
 │   ├── chart-renderer.js    # מנוע רינדור גרף סוכר ל-12 שעות
-│   ├── i18n.js              # מנהל תרגומים וטעינת שפות
+│   ├── i18n.js              # מנהל תרגומים וסנכרון שפות
+│   ├── icon.svg             # צלמית וקטורית של היישום
+│   ├── audio/alerts/        # קובצי שמע קומפקטיים (MP3) מובנים להתראות אופליין
 │   └── locales/             # מילוני שפות בפורמט JSON
 │       ├── en.json          # מילון אנגלית (ברירת מחדל)
 │       ├── he.json          # מילון עברית (RTL)
@@ -107,7 +112,9 @@ yom_kiper_timer/
 │   ├── test-i18n.js         # בדיקת תקינות מילוני השפות והתאמת מפתחות (100% Parity)
 │   └── test-e2e.js          # בדיקות קצה-לקצה אוטומטיות עם Playwright
 └── scripts/
-    └── generate-icons.js    # מחולל צלמיות (Icons) לחבילות התקנה
+    ├── generate-icons.js    # מחולל צלמיות (Icons) לחבילות התקנה
+    ├── generate-alert-audio.js # מחולל קובצי שמע מובנים מראש
+    └── bundle-readium-speech.js # באנדלר מקומי למנוע הקול של Readium
 ```
 
 ---
@@ -275,6 +282,16 @@ npm run build:mac
 3. **זה הכל!** השרת והממשק מזהים את הקובץ החדש אוטומטית ומאכלסים את כל תפריטי בחירת השפה במסך הראשי ובהגדרות ללא צורך בעריכת קוד כלל.
 4. הריצו `node tests/test-i18n.js` לוודא התאמה מלאה של כל המפתחות.
 לפרטים מלאים עיינו ב-[מדריך התרגום (TRANSLATION_GUIDE.md)](TRANSLATION_GUIDE.md).
+
+---
+
+## 📖 הנחיות פיתוח ותקני הנדסה
+
+עבור מפתחים, תורמים ועוזרי AI העובדים על בסיס קוד זה:
+
+- [**הנחיות פיתוח ומדיניות המערכת (DEVELOPER_GUIDELINES.md)**](DEVELOPER_GUIDELINES.md): עקרונות הנדסיים מנחים, עקרון ה-Fail-Safe לחלונות קופצים, שמירה על רישיון חופשי וטבלת סיכונים ומענים.
+- [**כללי עוזרי בינה מלאכותית (.agents/rules/AGENTS.md)**](.agents/rules/AGENTS.md): חוקי עבודה מחייבים, בדיקות חובה וארכיטקטורת 3 שלבי השמע עבור כלי AI.
+- [**מדריך תרגום ושפות (TRANSLATION_GUIDE.md)**](TRANSLATION_GUIDE.md): הנחיות להוספת שפות חדשות, הגדרות `_meta` ויצירת קובצי שמע מובנים.
 
 ---
 

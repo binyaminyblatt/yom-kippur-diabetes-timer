@@ -233,6 +233,65 @@ class I18nManager {
   }
 
   /**
+   * Get all registered / discovered language codes (e.g. ['en', 'he', 'es'])
+   */
+  getAvailableLanguages() {
+    if (Array.isArray(this.availableLanguages) && this.availableLanguages.length > 0) {
+      return this.availableLanguages.map(l => l.code);
+    }
+    return Object.keys(this.resources).length > 0 ? Object.keys(this.resources) : ['en', 'he'];
+  }
+
+  /**
+   * Get _meta configuration object for the given language dictionary
+   */
+  getLanguageMeta(lang = this.currentLanguage) {
+    if (!lang) return null;
+    const baseCode = String(lang).split(/[-_]/)[0].toLowerCase();
+    const resource = this.resources[lang] || this.resources[baseCode];
+    if (resource && resource._meta) {
+      return resource._meta;
+    }
+    // Check in availableLanguages list if loaded from server
+    const langObj = this.availableLanguages.find(l => l.code === lang || l.code === baseCode);
+    return langObj || null;
+  }
+
+  /**
+   * Get default BCP-47 region for the given language from _meta (e.g. 'en-US', 'he-IL', 'es-ES')
+   */
+  getDefaultRegion(lang = this.currentLanguage) {
+    const meta = this.getLanguageMeta(lang);
+    if (meta && meta.defaultRegion) {
+      return meta.defaultRegion;
+    }
+    const baseCode = String(lang || 'en').split(/[-_]/)[0].toLowerCase();
+    return `${baseCode}-${baseCode.toUpperCase()}`;
+  }
+
+  /**
+   * Get list of supported BCP-47 regions for the given language from _meta
+   * e.g. for 'en': ['en-US', 'en-GB', 'en-CA', 'en-AU', ...]
+   */
+  getRegions(lang = this.currentLanguage) {
+    const meta = this.getLanguageMeta(lang);
+    if (meta && Array.isArray(meta.regions) && meta.regions.length > 0) {
+      return meta.regions;
+    }
+    const defaultReg = this.getDefaultRegion(lang);
+    return [defaultReg];
+  }
+
+  /**
+   * Get configured Azure Neural voice for the given language from _meta
+   * e.g. for 'en': 'en-US-JennyNeural', for 'he': 'he-IL-AvriNeural'
+   */
+  getNeuralVoice(lang = this.currentLanguage) {
+    const meta = this.getLanguageMeta(lang);
+    return meta?.neuralVoice || 'en-US-JennyNeural';
+  }
+
+  /**
    * Helper to safely extract a nested key from a dictionary object
    */
   _lookupKey(dict, key) {
