@@ -17,6 +17,17 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'), { etag: false, maxAge: 0 }));
 
+// Local update feed override support (bridges local directories to HTTP for electron-updater)
+const localUpdateDir = process.env.UPDATE_URL || process.env.AUTO_UPDATE_URL;
+if (localUpdateDir && !localUpdateDir.startsWith('http://') && !localUpdateDir.startsWith('https://')) {
+  const cleanDir = localUpdateDir.replace(/^file:\/\//, '');
+  const resolvedDir = path.resolve(cleanDir);
+  if (fs.existsSync(resolvedDir)) {
+    console.log(`[Server] Serving local update feed from: ${resolvedDir} on /__local_update_feed`);
+    app.use('/__local_update_feed', express.static(resolvedDir, { etag: false, maxAge: 0 }));
+  }
+}
+
 // Regional API endpoints for LibreLinkUp / LibreView
 const REGION_URLS = {
   'US': 'https://api-us.libreview.io',
@@ -162,10 +173,16 @@ function writePersistedSettings(settingsObj) {
 // API Config Endpoint (returns dev mode status & system environment info)
 app.get('/api/config', (req, res) => {
   const isDev = process.env.DEV_MODE === 'true' || process.env.NODE_ENV === 'development';
+  const customUrl = process.env.UPDATE_URL || process.env.AUTO_UPDATE_URL;
+  let normalizedUpdateUrl = customUrl || null;
+  if (customUrl && !customUrl.startsWith('http://') && !customUrl.startsWith('https://')) {
+    normalizedUpdateUrl = '/__local_update_feed';
+  }
   res.json({
     success: true,
     version: pkg.version,
     isDev: Boolean(isDev),
+    updateUrl: normalizedUpdateUrl,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     systemCA: getCaSummary()

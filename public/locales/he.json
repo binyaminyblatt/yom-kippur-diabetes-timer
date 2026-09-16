@@ -341,10 +341,14 @@
       "desc": "תוכנה בקוד פתוח שנועדה לאכילה בטוחה לשיעורים וניטור סוכר רציף ביום הכיפורים.",
       "checkUpdates": "בדיקת עדכונים (GitHub)",
       "checkNow": "🔄 בדוק כעת",
-      "checking": "בודק עדכונים ב-GitHub...",
+      "checking": "בודק עדכונים...",
       "upToDate": "✓ הנך משתמש בגרסה העדכנית ביותר ({{version}}).",
       "updateAvailable": "🚀 גרסה חדשה {{version}} זמינה!",
-      "checkFailed": "לא ניתן לבדוק עדכונים כעת. בקר ישירות במאגר GitHub."
+      "checkFailed": "לא ניתן לבדוק עדכונים כעת. בקר ישירות במאגר GitHub.",
+      "downloading": "מוריד עדכון: {{percent}}%...",
+      "updateDownloaded": "✨ עדכון {{version}} מוכן!",
+      "restartToInstall": "הפעל מחדש להתקנה",
+      "downloadAsar": "הורד קובץ app.asar"
     },
     "btnSave": "שמור הגדרות",
     "btnCancel": "ביטול"

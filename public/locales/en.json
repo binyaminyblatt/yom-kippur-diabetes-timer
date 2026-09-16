@@ -345,10 +345,14 @@
       "desc": "Open source software designed for safe fasting and continuous glucose monitoring management on Yom Kippur.",
       "checkUpdates": "Check for Updates (GitHub)",
       "checkNow": "🔄 Check Now",
-      "checking": "Checking for updates on GitHub...",
+      "checking": "Checking for updates...",
       "upToDate": "✓ You are running the latest version ({{version}}).",
       "updateAvailable": "🚀 New version {{version}} is available!",
-      "checkFailed": "Could not check for updates. Visit GitHub repository directly."
+      "checkFailed": "Could not check for updates. Visit GitHub repository directly.",
+      "downloading": "Downloading update: {{percent}}%...",
+      "updateDownloaded": "✨ Update {{version}} ready!",
+      "restartToInstall": "Restart to Install",
+      "downloadAsar": "Download app.asar"
     },
     "btnSave": "Save Settings",
     "btnCancel": "Cancel"

@@ -1847,24 +1847,35 @@ document.addEventListener('DOMContentLoaded', () => {
   const linkGitHubRepo = document.getElementById('linkGitHubRepo');
   let currentAppVersion = '1.0.2';
 
+  let customUpdateUrl = null;
+
   async function loadAppVersion() {
     if (window.electronAPI && window.electronAPI.version) {
       currentAppVersion = window.electronAPI.version;
-    } else {
-      try {
-        const resp = await fetch('/api/config');
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data && data.version) {
-            currentAppVersion = data.version;
-          }
-        }
-      } catch (e) {}
+      customUpdateUrl = window.electronAPI.updateUrl || null;
     }
+    try {
+      const resp = await fetch('/api/config');
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.version && !(window.electronAPI && window.electronAPI.version)) {
+          currentAppVersion = data.version;
+        }
+        if (data && data.updateUrl) {
+          customUpdateUrl = data.updateUrl;
+        }
+      }
+    } catch (e) {}
+
     const formatted = currentAppVersion.startsWith('v') ? currentAppVersion : `v${currentAppVersion}`;
     document.querySelectorAll('.about-app-version, #aboutAppVersion').forEach(el => {
       el.textContent = formatted;
     });
+
+    if (linkDownloadAsar && customUpdateUrl) {
+      const asarPath = customUpdateUrl.endsWith('.asar') ? customUpdateUrl : `${customUpdateUrl.replace(/\/$/, '')}/app.asar`;
+      linkDownloadAsar.href = asarPath;
+    }
   }
   loadAppVersion();
 
@@ -1880,30 +1891,58 @@ document.addEventListener('DOMContentLoaded', () => {
     return false;
   }
 
+  const linkDownloadAsar = document.getElementById('linkDownloadAsar');
+
   async function checkForUpdates() {
     if (!updateStatusMsg) return;
     updateStatusMsg.className = 'update-status-msg';
     updateStatusMsg.classList.remove('hidden');
-    updateStatusMsg.textContent = window.i18n ? window.i18n.t('settings.about.checking', 'Checking for updates on GitHub...') : 'Checking for updates on GitHub...';
+    updateStatusMsg.textContent = window.i18n ? window.i18n.t('settings.about.checking', 'Checking for updates...') : 'Checking for updates...';
+
+    // If running in Electron, trigger native autoUpdater check directly
+    if (window.electronAPI && typeof window.electronAPI.checkForUpdates === 'function') {
+      try {
+        const elRes = await window.electronAPI.checkForUpdates();
+        if (elRes && elRes.status === 'ok') {
+          return; // Native updater events (downloading, downloaded) will update the UI
+        }
+      } catch (e) {
+        console.warn('Native update check fallback to HTTP:', e);
+      }
+    }
 
     try {
-      const response = await fetch('https://api.github.com/repos/binyaminyblatt/yom-kippur-diabetes-timer/releases/latest', {
+      let endpoint = 'https://api.github.com/repos/binyaminyblatt/yom-kippur-diabetes-timer/releases/latest';
+      if (customUpdateUrl) {
+        endpoint = customUpdateUrl.endsWith('.json') ? customUpdateUrl : `${customUpdateUrl.replace(/\/$/, '')}/latest.json`;
+      }
+
+      const response = await fetch(endpoint, {
         headers: { 'Accept': 'application/vnd.github.v3+json' }
       });
       if (!response.ok) {
-        throw new Error(`GitHub API HTTP ${response.status}`);
+        throw new Error(`Update check HTTP ${response.status}`);
       }
       const data = await response.json();
-      const latestTag = data.tag_name || data.name || '';
-      const cleanLatest = latestTag.replace(/^v/, '').trim();
+      const latestTag = data.tag_name || data.version || data.name || '';
+      const cleanLatest = String(latestTag).replace(/^v/, '').trim();
       const cleanCurrent = currentAppVersion.replace(/^v/, '').trim();
       const formattedCurrent = currentAppVersion.startsWith('v') ? currentAppVersion : `v${currentAppVersion}`;
+
+      // Look for direct app.asar asset in release
+      const asarAsset = Array.isArray(data.assets) ? data.assets.find(a => a.name === 'app.asar' || a.name.endsWith('.asar')) : null;
+      const asarDownloadUrl = asarAsset?.browser_download_url || (customUpdateUrl ? `${customUpdateUrl.replace(/\/$/, '')}/app.asar` : `https://github.com/binyaminyblatt/yom-kippur-diabetes-timer/releases/download/${latestTag}/app.asar`);
+
+      if (linkDownloadAsar) {
+        linkDownloadAsar.href = asarDownloadUrl;
+      }
 
       if (cleanLatest && cleanLatest !== cleanCurrent && isNewerVersion(cleanLatest, cleanCurrent)) {
         updateStatusMsg.className = 'update-status-msg status-update-available';
         const msg = window.i18n ? window.i18n.t('settings.about.updateAvailable', { version: latestTag }) : `🚀 New version ${latestTag} is available!`;
-        const downloadUrl = data.html_url || 'https://github.com/binyaminyblatt/yom-kippur-diabetes-timer/releases';
-        updateStatusMsg.innerHTML = `${msg} <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" class="update-dl-link" style="color: #38bdf8; text-decoration: underline; font-weight: 600; margin-left: 6px;">Download ${latestTag}</a>`;
+        const downloadUrl = data.html_url || (customUpdateUrl ? asarDownloadUrl : 'https://github.com/binyaminyblatt/yom-kippur-diabetes-timer/releases');
+        const asarLabel = window.i18n ? window.i18n.t('settings.about.downloadAsar', 'Download app.asar') : 'Download app.asar';
+        updateStatusMsg.innerHTML = `${msg} <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" class="update-dl-link" style="color: #38bdf8; text-decoration: underline; font-weight: 600; margin-left: 6px;">Download ${latestTag}</a> <a href="${asarDownloadUrl}" target="_blank" rel="noopener noreferrer" class="update-dl-link" style="color: #a78bfa; text-decoration: underline; font-weight: 600; margin-left: 8px;">📦 ${asarLabel}</a>`;
       } else {
         updateStatusMsg.className = 'update-status-msg status-success';
         updateStatusMsg.textContent = window.i18n ? window.i18n.t('settings.about.upToDate', { version: formattedCurrent }) : `✓ You are running the latest version (${formattedCurrent}).`;
@@ -1923,11 +1962,45 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Listen for native Electron auto-updater background events
+  if (window.electronAPI && typeof window.electronAPI.onUpdateStatus === 'function') {
+    window.electronAPI.onUpdateStatus((data) => {
+      if (!updateStatusMsg) return;
+      updateStatusMsg.classList.remove('hidden');
+      if (data.status === 'downloading') {
+        updateStatusMsg.className = 'update-status-msg status-update-available';
+        updateStatusMsg.textContent = window.i18n ? window.i18n.t('settings.about.downloading', { percent: data.percent }) : `Downloading update: ${data.percent}%...`;
+      } else if (data.status === 'downloaded') {
+        updateStatusMsg.className = 'update-status-msg status-update-available';
+        const readyMsg = window.i18n ? window.i18n.t('settings.about.updateDownloaded', { version: `v${data.version}` }) : `✨ Update v${data.version} ready!`;
+        const restartLabel = window.i18n ? window.i18n.t('settings.about.restartToInstall', 'Restart to Install') : 'Restart to Install';
+        updateStatusMsg.innerHTML = `${readyMsg} <button id="btnInstallUpdateNow" style="margin-left:8px; padding:2px 8px; border-radius:4px; background:#10b981; color:#fff; border:none; cursor:pointer; font-weight:600;">${restartLabel}</button>`;
+        const btnInstall = document.getElementById('btnInstallUpdateNow');
+        if (btnInstall) {
+          btnInstall.addEventListener('click', () => {
+            if (typeof window.electronAPI.installUpdate === 'function') {
+              window.electronAPI.installUpdate();
+            }
+          });
+        }
+      }
+    });
+  }
+
   if (linkGitHubRepo) {
     linkGitHubRepo.addEventListener('click', (e) => {
       if (window.electronAPI && typeof window.electronAPI.openExternal === 'function') {
         e.preventDefault();
         window.electronAPI.openExternal(linkGitHubRepo.href || 'https://github.com/binyaminyblatt/yom-kippur-diabetes-timer');
+      }
+    });
+  }
+
+  if (linkDownloadAsar) {
+    linkDownloadAsar.addEventListener('click', (e) => {
+      if (window.electronAPI && typeof window.electronAPI.openExternal === 'function') {
+        e.preventDefault();
+        window.electronAPI.openExternal(linkDownloadAsar.href || 'https://github.com/binyaminyblatt/yom-kippur-diabetes-timer/releases/latest/download/app.asar');
       }
     });
   }

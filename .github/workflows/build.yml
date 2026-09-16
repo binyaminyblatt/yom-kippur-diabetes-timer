@@ -232,6 +232,25 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
+      - name: Locate & Export app.asar
+        shell: bash
+        run: |
+          ASAR_FOUND=$(find dist -type f -name "app.asar" | head -n 1)
+          if [ -n "$ASAR_FOUND" ]; then
+            echo "Found asar at $ASAR_FOUND, copying to dist/app.asar"
+            cp "$ASAR_FOUND" dist/app.asar
+          fi
+
+      - name: Preserve Target-Specific Updater Manifest
+        shell: bash
+        run: |
+          for yml in dist/latest*.yml dist/latest*.yaml; do
+            if [ -f "$yml" ]; then
+              echo "Preserving $yml as dist/updater-meta-${{ matrix.build_target.id }}.yml"
+              cp "$yml" "dist/updater-meta-${{ matrix.build_target.id }}.yml"
+            fi
+          done
+
       - name: Upload Target Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -247,6 +266,11 @@ jobs:
             dist/*.pacman
             dist/*.snap
             dist/*.tar.gz
+            dist/*.yml
+            dist/*.yaml
+            dist/*.blockmap
+            dist/*.asar
+            dist/app.asar
           if-no-files-found: ignore
           retention-days: 30
 
@@ -286,6 +310,22 @@ jobs:
           pattern: '*-artifacts'
           merge-multiple: true
 
+      - name: Ensure app.asar is organized in release assets
+        shell: bash
+        run: |
+          if [ ! -f release-assets/app.asar ]; then
+            ASAR_FOUND=$(find release-assets -type f -name "app.asar" | head -n 1)
+            if [ -n "$ASAR_FOUND" ]; then
+              echo "Promoting nested $ASAR_FOUND to release-assets/app.asar"
+              cp "$ASAR_FOUND" release-assets/app.asar
+            fi
+          fi
+
+      - name: Parse & Merge Multi-OS Updater Manifests
+        shell: bash
+        run: |
+          node scripts/merge-updater-manifests.js release-assets
+
       - name: Display downloaded assets
         run: |
           echo "--- Downloaded Release Assets ---"
@@ -308,6 +348,12 @@ jobs:
             release-assets/*.pacman
             release-assets/*.snap
             release-assets/*.tar.gz
+            release-assets/*.yml
+            release-assets/*.yaml
+            release-assets/*.json
+            release-assets/*.blockmap
+            release-assets/*.asar
+            release-assets/app.asar
           draft: false
           prerelease: false
           generate_release_notes: true
