@@ -243,9 +243,8 @@ npm run build:win:ia32      # Windows 32-bit (MSI, NSIS, Portable ZIP)
 npm run build:win:arm64     # Windows ARM64 (MSI, NSIS, Portable ZIP)
 npm run build:win:all       # All Windows architectures
 
-# --- Linux Builds (x64, 32-bit ia32, ARM64, ARMv7l 32-bit) ---
+# --- Linux Builds (x64, ARM64, ARMv7l 32-bit) ---
 npm run build:linux:x64     # Linux 64-bit (AppImage, deb, rpm, pacman, snap, tar.xz)
-npm run build:linux:ia32    # Linux 32-bit Intel/AMD (AppImage, deb, rpm, pacman, tar.xz)
 npm run build:linux:arm64   # Linux ARM64 (AppImage, deb, rpm, pacman, tar.xz)
 npm run build:linux:armv7l  # Linux 32-bit ARM / Raspberry Pi (AppImage, deb, rpm, pacman, tar.xz)
 npm run build:linux:all     # All Linux architectures

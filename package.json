@@ -1,6 +1,6 @@
 {
   "name": "yom-kippur-diabetes-timer",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Yom Kippur Diabetes Eating Interval (Achila l'Shiurim) Timer with LibreLinkUp CGM Integration and Airplane Bing-Bong Chimes",
   "main": "main.js",
   "scripts": {
@@ -20,10 +20,9 @@
     "build:win:all": "electron-builder --win --x64 --ia32 --arm64",
     "build:linux": "electron-builder --linux --x64",
     "build:linux:x64": "electron-builder --linux --x64",
-    "build:linux:ia32": "electron-builder --linux --ia32",
     "build:linux:arm64": "electron-builder --linux --arm64",
     "build:linux:armv7l": "electron-builder --linux --armv7l",
-    "build:linux:all": "electron-builder --linux --x64 --ia32 --arm64 --armv7l",
+    "build:linux:all": "electron-builder --linux --x64 --arm64 --armv7l",
     "build:all": "npm run build:mac:all && npm run build:win:all && npm run build:linux:all",
     "test": "node tests/test-compliance.js && node tests/test-app.js",
     "test:compliance": "node tests/test-compliance.js",

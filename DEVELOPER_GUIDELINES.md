@@ -187,9 +187,9 @@ npm run test:e2e
     - `arm64` (Windows on ARM): MSI, NSIS Installer, Portable ZIP
   - **Linux**:
     - `x64` (64-bit x86_64): AppImage, DEB, RPM, Pacman, Snap, tar.xz
-    - `ia32` (32-bit Intel/AMD x86): AppImage, DEB, RPM, Pacman, tar.xz
     - `arm64` (64-bit aarch64): AppImage, DEB, RPM, Pacman, tar.xz
     - `armv7l` (32-bit ARM / Raspberry Pi): AppImage, DEB, RPM, Pacman, tar.xz
+    *(Note: Electron/Chromium upstream discontinued 32-bit x86 `ia32` Linux binaries; 32-bit Linux is supported via `armv7l` ARM architectures)*
   - **macOS**:
     - `Universal` (Apple Silicon `arm64` + Intel `x64`): DMG, ZIP
     - Individual `x64` and `arm64` builds
@@ -197,8 +197,8 @@ npm run test:e2e
   - `npm run dev`: Concurrent server + electron development.
   - `npm run build:win:all`: Build all Windows architectures (`x64`, `ia32`, `arm64`).
   - `npm run build:win:x64` / `npm run build:win:ia32` / `npm run build:win:arm64`: Build specific Windows architecture.
-  - `npm run build:linux:all`: Build all Linux architectures (`x64`, `ia32`, `arm64`, `armv7l`).
-  - `npm run build:linux:x64` / `npm run build:linux:ia32` / `npm run build:linux:arm64` / `npm run build:linux:armv7l`: Build specific Linux architecture.
+  - `npm run build:linux:all`: Build all Linux architectures (`x64`, `arm64`, `armv7l`).
+  - `npm run build:linux:x64` / `npm run build:linux:arm64` / `npm run build:linux:armv7l`: Build specific Linux architecture.
   - `npm run build:mac:all`: Build all macOS architectures (`universal`, `x64`, `arm64`).
   - `npm run build:all`: Build all platforms and architectures.
   - `npm run bundle:speech`: Re-bundle `@readium/speech` into `public/vendor/`.
