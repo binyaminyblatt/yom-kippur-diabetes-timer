@@ -7,6 +7,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const os = require('os');
 const pkg = require('./package.json');
 
 const app = express();
@@ -271,9 +272,38 @@ app.get('/api/languages', (req, res) => {
 // --- High-Fidelity Neural TTS Service with Disk Cache & LRU Cleanup ---
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 
-const TTS_CACHE_DIR = path.join(__dirname, 'cache', 'tts');
-if (!fs.existsSync(TTS_CACHE_DIR)) {
-  fs.mkdirSync(TTS_CACHE_DIR, { recursive: true });
+// Helper: Locate persistent TTS audio cache directory across OS platforms and packaged Electron (.asar safe)
+function getTtsCacheDir() {
+  if (process.env.YKT_CACHE_DIR) {
+    return path.join(process.env.YKT_CACHE_DIR, 'tts');
+  }
+  const home = process.env.HOME || process.env.USERPROFILE;
+  let baseCacheDir;
+  if (process.platform === 'win32') {
+    baseCacheDir = process.env.LOCALAPPDATA || (home ? path.join(home, 'AppData', 'Local') : os.tmpdir());
+  } else if (process.platform === 'darwin') {
+    baseCacheDir = home ? path.join(home, 'Library', 'Caches') : os.tmpdir();
+  } else {
+    baseCacheDir = process.env.XDG_CACHE_HOME || (home ? path.join(home, '.cache') : os.tmpdir());
+  }
+  return path.join(baseCacheDir, 'yom-kippur-diabetes-timer', 'tts');
+}
+
+let TTS_CACHE_DIR = getTtsCacheDir();
+try {
+  if (!fs.existsSync(TTS_CACHE_DIR)) {
+    fs.mkdirSync(TTS_CACHE_DIR, { recursive: true });
+  }
+} catch (err) {
+  console.warn('[TTS Cache] Failed to create primary cache dir, falling back to temp dir:', err.message);
+  try {
+    TTS_CACHE_DIR = path.join(os.tmpdir(), 'yom-kippur-diabetes-timer', 'tts');
+    if (!fs.existsSync(TTS_CACHE_DIR)) {
+      fs.mkdirSync(TTS_CACHE_DIR, { recursive: true });
+    }
+  } catch (e) {
+    console.warn('[TTS Cache] Failed to initialize fallback cache dir:', e.message);
+  }
 }
 
 // Resolve Microsoft Azure Neural voice strictly from the locale file's _meta.neuralVoice
