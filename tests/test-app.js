@@ -739,6 +739,87 @@ async function testServerEndpoints() {
   }
 }
 
+// Test Updater Manifest & Multi-Arch Classification (including Linux 32-bit ia32)
+function testUpdaterManifestAndClassification() {
+  console.log('\n--- Testing Updater Manifest & Multi-Arch Classification ---');
+  const { classifyFile, mergeUpdaterManifests } = require(path.join(__dirname, '../scripts/merge-updater-manifests'));
+
+  // Test classifyFile for Linux ia32 / i386 / i686
+  const linuxIa32AppImage = classifyFile('Yom-Kippur-Diabetes-Timer-1.0.5-ia32.AppImage');
+  assert.deepStrictEqual(linuxIa32AppImage, { platform: 'linux', arch: 'ia32', groupKey: 'linux_ia32' });
+
+  const linuxI386Deb = classifyFile('yom-kippur-diabetes-timer_1.0.5_i386.deb');
+  assert.deepStrictEqual(linuxI386Deb, { platform: 'linux', arch: 'ia32', groupKey: 'linux_ia32' });
+
+  const linuxI686Rpm = classifyFile('yom-kippur-diabetes-timer-1.0.5.i686.rpm');
+  assert.deepStrictEqual(linuxI686Rpm, { platform: 'linux', arch: 'ia32', groupKey: 'linux_ia32' });
+
+  const linuxIa32Pacman = classifyFile('yom-kippur-diabetes-timer-1.0.5-ia32.pacman');
+  assert.deepStrictEqual(linuxIa32Pacman, { platform: 'linux', arch: 'ia32', groupKey: 'linux_ia32' });
+
+  // Test classifyFile for other Linux architectures
+  const linuxX64 = classifyFile('yom-kippur-diabetes-timer-1.0.5.AppImage');
+  assert.deepStrictEqual(linuxX64, { platform: 'linux', arch: 'x64', groupKey: 'linux_x64' });
+
+  const linuxArm64 = classifyFile('yom-kippur-diabetes-timer-1.0.5-arm64.AppImage');
+  assert.deepStrictEqual(linuxArm64, { platform: 'linux', arch: 'arm64', groupKey: 'linux_arm64' });
+
+  const linuxArmv7l = classifyFile('yom-kippur-diabetes-timer-1.0.5-armv7l.AppImage');
+  assert.deepStrictEqual(linuxArmv7l, { platform: 'linux', arch: 'armv7l', groupKey: 'linux_armv7l' });
+
+  // Test classifyFile for Windows & Mac
+  const winIa32 = classifyFile('Yom-Kippur-Timer-Setup-1.0.5-ia32.exe');
+  assert.deepStrictEqual(winIa32, { platform: 'win', arch: 'ia32', groupKey: 'win_ia32' });
+
+  const macUniversal = classifyFile('Yom-Kippur-Timer-1.0.5-universal.dmg');
+  assert.deepStrictEqual(macUniversal, { platform: 'mac', arch: 'universal', groupKey: 'mac' });
+
+  // Test mergeUpdaterManifests in temporary directory
+  const testTmpDir = path.join(__dirname, 'temp-updater-test');
+  if (fs.existsSync(testTmpDir)) {
+    fs.rmSync(testTmpDir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(testTmpDir, { recursive: true });
+
+  try {
+    fs.writeFileSync(path.join(testTmpDir, 'Yom-Kippur-Diabetes-Timer-1.0.5-ia32.AppImage'), 'fake-appimage-ia32');
+    fs.writeFileSync(path.join(testTmpDir, 'yom-kippur-diabetes-timer_1.0.5_i386.deb'), 'fake-deb-ia32');
+    fs.writeFileSync(path.join(testTmpDir, 'Yom-Kippur-Diabetes-Timer-1.0.5.AppImage'), 'fake-appimage-x64');
+    fs.writeFileSync(path.join(testTmpDir, 'Yom-Kippur-Timer-Setup-1.0.5-ia32.exe'), 'fake-win-ia32');
+
+    mergeUpdaterManifests(testTmpDir);
+
+    // Verify latest-linux-ia32.yml
+    const linuxIa32ManifestPath = path.join(testTmpDir, 'latest-linux-ia32.yml');
+    assert.ok(fs.existsSync(linuxIa32ManifestPath), 'latest-linux-ia32.yml should be generated');
+    const linuxIa32Content = fs.readFileSync(linuxIa32ManifestPath, 'utf8');
+    assert.ok(linuxIa32Content.includes('Yom-Kippur-Diabetes-Timer-1.0.5-ia32.AppImage'), 'Manifest should include ia32 AppImage');
+    assert.ok(linuxIa32Content.includes('yom-kippur-diabetes-timer_1.0.5_i386.deb'), 'Manifest should include i386 deb');
+
+    // Verify latest-linux.yml
+    const linuxX64ManifestPath = path.join(testTmpDir, 'latest-linux.yml');
+    assert.ok(fs.existsSync(linuxX64ManifestPath), 'latest-linux.yml should be generated');
+
+    // Verify latest-ia32.yml
+    const winIa32ManifestPath = path.join(testTmpDir, 'latest-ia32.yml');
+    assert.ok(fs.existsSync(winIa32ManifestPath), 'latest-ia32.yml should be generated');
+
+    // Verify latest.json
+    const latestJsonPath = path.join(testTmpDir, 'latest.json');
+    assert.ok(fs.existsSync(latestJsonPath), 'latest.json should be generated');
+    const latestJson = JSON.parse(fs.readFileSync(latestJsonPath, 'utf8'));
+    assert.ok(latestJson.platforms.linux.ia32, 'latest.json must contain platforms.linux.ia32');
+    assert.strictEqual(latestJson.platforms.linux.ia32.length, 2, 'platforms.linux.ia32 should contain 2 assets');
+    assert.strictEqual(latestJson.platforms.windows.ia32.length, 1, 'platforms.windows.ia32 should contain 1 asset');
+
+    console.log('✓ Multi-arch classification and Linux 32-bit (ia32) updater manifests verified successfully!');
+  } finally {
+    if (fs.existsSync(testTmpDir)) {
+      fs.rmSync(testTmpDir, { recursive: true, force: true });
+    }
+  }
+}
+
 async function runAll() {
   try {
     testTimerLogic();
@@ -746,6 +827,7 @@ async function runAll() {
     await testReadiumSpeechAndVoiceRanking();
     testLockAndPasscodeLogic();
     await testServerEndpoints();
+    testUpdaterManifestAndClassification();
     console.log('\n=============================================');
     console.log(' ALL AUTOMATED TESTS PASSED SUCCESSFULLY! ✓');
     console.log('=============================================\n');
@@ -757,3 +839,4 @@ async function runAll() {
 }
 
 runAll();
+

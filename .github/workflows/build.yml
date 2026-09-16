@@ -81,45 +81,120 @@ jobs:
             additional_cmd: |
               bash scripts/verify-macos-signing.sh
               node scripts/generate-icons.js
-          # --- Windows MSI Installer ---
-          - id: windows-msi
-            name: "Windows (MSI Installer)"
+
+          # =========================================================
+          # Windows Targets (x64, ia32 32-bit, arm64)
+          # =========================================================
+
+          # --- Windows MSI Installer 64-bit ---
+          - id: windows-msi-64bit
+            name: "Windows (MSI Installer 64-bit)"
             os: windows-latest
             platform: win
-            builder_cmd: "npx electron-builder --win msi"
+            builder_cmd: "npx electron-builder --x64 --win msi"
             cache_paths: |
               ~\AppData\Local\electron\Cache
               ~\AppData\Local\electron-builder\Cache
             additional_cmd: "node scripts/generate-icons.js"
 
-          # --- Windows NSIS Setup ---
-          - id: windows-nsis
-            name: "Windows (NSIS Setup)"
+          # --- Windows NSIS Setup 64-bit ---
+          - id: windows-nsis-64bit
+            name: "Windows (NSIS Setup 64-bit)"
             os: windows-latest
             platform: win
-            builder_cmd: "npx electron-builder --win nsis"
+            builder_cmd: "npx electron-builder --x64 --win nsis"
             cache_paths: |
               ~\AppData\Local\electron\Cache
               ~\AppData\Local\electron-builder\Cache
             additional_cmd: "node scripts/generate-icons.js"
 
-          # --- Windows Portable ZIP ---
-          - id: windows-zip
-            name: "Windows (Portable ZIP)"
+          # --- Windows Portable ZIP 64-bit ---
+          - id: windows-zip-64bit
+            name: "Windows (Portable ZIP 64-bit)"
             os: windows-latest
             platform: win
-            builder_cmd: "npx electron-builder --win zip"
+            builder_cmd: "npx electron-builder --x64 --win zip"
             cache_paths: |
               ~\AppData\Local\electron\Cache
               ~\AppData\Local\electron-builder\Cache
             additional_cmd: "node scripts/generate-icons.js"
 
-          # --- Linux AppImage ---
-          - id: linux-appimage
-            name: "Linux (AppImage)"
+          # --- Windows MSI Installer 32-bit (ia32) ---
+          - id: windows-msi-32bit
+            name: "Windows (MSI Installer 32-bit ia32)"
+            os: windows-latest
+            platform: win
+            builder_cmd: "npx electron-builder --ia32 --win msi"
+            cache_paths: |
+              ~\AppData\Local\electron\Cache
+              ~\AppData\Local\electron-builder\Cache
+            additional_cmd: "node scripts/generate-icons.js"
+
+          # --- Windows NSIS Setup 32-bit (ia32) ---
+          - id: windows-nsis-32bit
+            name: "Windows (NSIS Setup 32-bit ia32)"
+            os: windows-latest
+            platform: win
+            builder_cmd: "npx electron-builder --ia32 --win nsis"
+            cache_paths: |
+              ~\AppData\Local\electron\Cache
+              ~\AppData\Local\electron-builder\Cache
+            additional_cmd: "node scripts/generate-icons.js"
+
+          # --- Windows Portable ZIP 32-bit (ia32) ---
+          - id: windows-zip-32bit
+            name: "Windows (Portable ZIP 32-bit ia32)"
+            os: windows-latest
+            platform: win
+            builder_cmd: "npx electron-builder --ia32 --win zip"
+            cache_paths: |
+              ~\AppData\Local\electron\Cache
+              ~\AppData\Local\electron-builder\Cache
+            additional_cmd: "node scripts/generate-icons.js"
+
+          # --- Windows MSI Installer ARM64 ---
+          - id: windows-msi-arm64
+            name: "Windows (MSI Installer ARM64)"
+            os: windows-latest
+            platform: win
+            builder_cmd: "npx electron-builder --arm64 --win msi"
+            cache_paths: |
+              ~\AppData\Local\electron\Cache
+              ~\AppData\Local\electron-builder\Cache
+            additional_cmd: "node scripts/generate-icons.js"
+
+          # --- Windows NSIS Setup ARM64 ---
+          - id: windows-nsis-arm64
+            name: "Windows (NSIS Setup ARM64)"
+            os: windows-latest
+            platform: win
+            builder_cmd: "npx electron-builder --arm64 --win nsis"
+            cache_paths: |
+              ~\AppData\Local\electron\Cache
+              ~\AppData\Local\electron-builder\Cache
+            additional_cmd: "node scripts/generate-icons.js"
+
+          # --- Windows Portable ZIP ARM64 ---
+          - id: windows-zip-arm64
+            name: "Windows (Portable ZIP ARM64)"
+            os: windows-latest
+            platform: win
+            builder_cmd: "npx electron-builder --arm64 --win zip"
+            cache_paths: |
+              ~\AppData\Local\electron\Cache
+              ~\AppData\Local\electron-builder\Cache
+            additional_cmd: "node scripts/generate-icons.js"
+
+          # =========================================================
+          # Linux Targets: x64
+          # =========================================================
+
+          # --- Linux AppImage x64 ---
+          - id: linux-appimage-x64
+            name: "Linux x64 (AppImage)"
             os: ubuntu-latest
             platform: linux
-            builder_cmd: "npx electron-builder --linux AppImage"
+            builder_cmd: "npx electron-builder --x64 --linux AppImage"
             cache_paths: |
               ~/.cache/electron
               ~/.cache/electron-builder
@@ -128,12 +203,12 @@ jobs:
               sudo apt-get install -y libarchive-tools
               node scripts/generate-icons.js
 
-          # --- Linux DEB ---
-          - id: linux-deb
-            name: "Linux (DEB Package)"
+          # --- Linux DEB x64 ---
+          - id: linux-deb-x64
+            name: "Linux x64 (DEB Package)"
             os: ubuntu-latest
             platform: linux
-            builder_cmd: "npx electron-builder --linux deb"
+            builder_cmd: "npx electron-builder --x64 --linux deb"
             cache_paths: |
               ~/.cache/electron
               ~/.cache/electron-builder
@@ -142,12 +217,12 @@ jobs:
               sudo apt-get install -y libarchive-tools
               node scripts/generate-icons.js
 
-          # --- Linux RPM ---
-          - id: linux-rpm
-            name: "Linux (RPM)"
+          # --- Linux RPM x64 ---
+          - id: linux-rpm-x64
+            name: "Linux x64 (RPM)"
             os: ubuntu-latest
             platform: linux
-            builder_cmd: "npx electron-builder --linux rpm"
+            builder_cmd: "npx electron-builder --x64 --linux rpm"
             cache_paths: |
               ~/.cache/electron
               ~/.cache/electron-builder
@@ -156,12 +231,12 @@ jobs:
               sudo apt-get install -y rpm libarchive-tools
               node scripts/generate-icons.js
 
-          # --- Linux Pacman ---
-          - id: linux-pacman
-            name: "Linux (Pacman Package)"
+          # --- Linux Pacman x64 ---
+          - id: linux-pacman-x64
+            name: "Linux x64 (Pacman Package)"
             os: ubuntu-latest
             platform: linux
-            builder_cmd: "npx electron-builder --linux pacman"
+            builder_cmd: "npx electron-builder --x64 --linux pacman"
             cache_paths: |
               ~/.cache/electron
               ~/.cache/electron-builder
@@ -170,17 +245,197 @@ jobs:
               sudo apt-get install -y rpm libarchive-tools
               node scripts/generate-icons.js
 
-          # --- Linux Snap Package ---
-          - id: linux-snap
-            name: "Linux (Snap Package)"
+          # --- Linux Snap Package x64 ---
+          - id: linux-snap-x64
+            name: "Linux x64 (Snap Package)"
             os: ubuntu-latest
             platform: linux
-            builder_cmd: "npx electron-builder --linux snap"
+            builder_cmd: "npx electron-builder --x64 --linux snap"
             cache_paths: |
               ~/.cache/electron
               ~/.cache/electron-builder
             additional_cmd: |
               sudo snap install snapcraft --classic
+              node scripts/generate-icons.js
+
+          # =========================================================
+          # Linux Targets: ARM64 (aarch64)
+          # =========================================================
+
+          # --- Linux AppImage ARM64 ---
+          - id: linux-appimage-arm64
+            name: "Linux ARM64 (AppImage)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --arm64 --linux AppImage"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y libarchive-tools
+              node scripts/generate-icons.js
+
+          # --- Linux DEB ARM64 ---
+          - id: linux-deb-arm64
+            name: "Linux ARM64 (DEB Package)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --arm64 --linux deb"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y libarchive-tools
+              node scripts/generate-icons.js
+
+          # --- Linux RPM ARM64 ---
+          - id: linux-rpm-arm64
+            name: "Linux ARM64 (RPM)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --arm64 --linux rpm"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y rpm libarchive-tools
+              node scripts/generate-icons.js
+
+          # --- Linux Pacman ARM64 ---
+          - id: linux-pacman-arm64
+            name: "Linux ARM64 (Pacman Package)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --arm64 --linux pacman"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y rpm libarchive-tools
+              node scripts/generate-icons.js
+
+          # =========================================================
+          # Linux Targets: ARMv7l (32-bit ARM / Raspberry Pi)
+          # =========================================================
+
+          # --- Linux AppImage ARMv7l ---
+          - id: linux-appimage-armv7l
+            name: "Linux ARMv7l 32-bit (AppImage)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --armv7l --linux AppImage"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y libarchive-tools
+              node scripts/generate-icons.js
+
+          # --- Linux DEB ARMv7l ---
+          - id: linux-deb-armv7l
+            name: "Linux ARMv7l 32-bit (DEB Package)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --armv7l --linux deb"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y libarchive-tools
+              node scripts/generate-icons.js
+
+          # --- Linux RPM ARMv7l ---
+          - id: linux-rpm-armv7l
+            name: "Linux ARMv7l 32-bit (RPM)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --armv7l --linux rpm"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y rpm libarchive-tools
+              node scripts/generate-icons.js
+
+          # --- Linux Pacman ARMv7l ---
+          - id: linux-pacman-armv7l
+            name: "Linux ARMv7l 32-bit (Pacman Package)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --armv7l --linux pacman"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y rpm libarchive-tools
+              node scripts/generate-icons.js
+
+          # =========================================================
+          # Linux Targets: ia32 (32-bit Intel/AMD x86)
+          # =========================================================
+
+          # --- Linux AppImage ia32 ---
+          - id: linux-appimage-ia32
+            name: "Linux ia32 32-bit (AppImage)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --ia32 --linux AppImage"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y libarchive-tools
+              node scripts/generate-icons.js
+
+          # --- Linux DEB ia32 ---
+          - id: linux-deb-ia32
+            name: "Linux ia32 32-bit (DEB Package)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --ia32 --linux deb"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y libarchive-tools
+              node scripts/generate-icons.js
+
+          # --- Linux RPM ia32 ---
+          - id: linux-rpm-ia32
+            name: "Linux ia32 32-bit (RPM)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --ia32 --linux rpm"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y rpm libarchive-tools
+              node scripts/generate-icons.js
+
+          # --- Linux Pacman ia32 ---
+          - id: linux-pacman-ia32
+            name: "Linux ia32 32-bit (Pacman Package)"
+            os: ubuntu-latest
+            platform: linux
+            builder_cmd: "npx electron-builder --ia32 --linux pacman"
+            cache_paths: |
+              ~/.cache/electron
+              ~/.cache/electron-builder
+            additional_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y rpm libarchive-tools
               node scripts/generate-icons.js
 
     steps:

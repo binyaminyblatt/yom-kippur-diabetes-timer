@@ -234,20 +234,33 @@ npm run test:e2e
 
 ## 📦 Building Standalone Binaries (Packaged Apps)
 
-You can package the application into standalone distributables for macOS, Windows, or Linux using `electron-builder`:
+You can package the application into standalone distributables across multiple architectures (x64, ia32 32-bit, arm64, armv7l) for macOS, Windows, or Linux using `electron-builder`:
 
 ```bash
-# Build for Linux (AppImage & deb)
-npm run build:linux
+# --- Windows Builds (x64, 32-bit ia32, ARM64) ---
+npm run build:win:x64       # Windows 64-bit (MSI, NSIS, Portable ZIP)
+npm run build:win:ia32      # Windows 32-bit (MSI, NSIS, Portable ZIP)
+npm run build:win:arm64     # Windows ARM64 (MSI, NSIS, Portable ZIP)
+npm run build:win:all       # All Windows architectures
 
-# Build for Windows (.exe installer & portable)
-npm run build:win
+# --- Linux Builds (x64, 32-bit ia32, ARM64, ARMv7l 32-bit) ---
+npm run build:linux:x64     # Linux 64-bit (AppImage, deb, rpm, pacman, snap, tar.xz)
+npm run build:linux:ia32    # Linux 32-bit Intel/AMD (AppImage, deb, rpm, pacman, tar.xz)
+npm run build:linux:arm64   # Linux ARM64 (AppImage, deb, rpm, pacman, tar.xz)
+npm run build:linux:armv7l  # Linux 32-bit ARM / Raspberry Pi (AppImage, deb, rpm, pacman, tar.xz)
+npm run build:linux:all     # All Linux architectures
 
-# Build for macOS (Universal DMG / zip)
-npm run build:mac
+# --- macOS Builds (Universal, Apple Silicon ARM64, Intel x64) ---
+npm run build:mac:universal # Universal binary (M1/M2/M3/M4 + Intel)
+npm run build:mac:arm64     # Apple Silicon ARM64
+npm run build:mac:x64       # Intel 64-bit
+npm run build:mac:all       # All macOS targets
+
+# --- Build Everything ---
+npm run build:all
 ```
 
-Built executables and installers will be saved to the `dist/` directory.
+Built executables and installers will be saved to the `dist/` directory along with corresponding updater manifests.
 
 ---
 

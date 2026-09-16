@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * Yom Kippur Diabetes Timer - Multi-Target Updater Manifest Merger
+ * Yom Kippur Diabetes Timer - Multi-Target & Multi-Arch Updater Manifest Merger
  *
- * Scans build/release artifacts across all matrix targets (Linux, Windows, macOS),
+ * Scans build/release artifacts across all matrix targets (Linux, Windows, macOS)
+ * and architectures (x64, ia32, arm64, armv7l, universal),
  * calculates cryptographic SHA-512 hashes and blockmaps, parses existing partial manifests,
- * and generates unified combined updater manifests (latest.yml, latest-linux.yml, latest-mac.yml, latest.json)
- * so all distribution package formats can seamlessly auto-update.
+ * and generates unified combined updater manifests:
+ *  - Windows: latest.yml (x64), latest-ia32.yml (ia32), latest-arm64.yml (arm64)
+ *  - Linux: latest-linux.yml (x64), latest-linux-ia32.yml (ia32), latest-linux-arm64.yml (arm64), latest-linux-arm.yml (armv7l)
+ *  - macOS: latest-mac.yml (universal / arm64 / x64)
+ *  - Aggregate: latest.json (full asset directory with metadata and architecture tags)
  */
 
 const fs = require('fs');
@@ -85,6 +89,52 @@ function serializeYaml(manifest) {
   return yaml;
 }
 
+function classifyFile(fileName) {
+  const lower = fileName.toLowerCase();
+
+  // Ignore updater manifests and checksum files from classification
+  if (lower.endsWith('.yml') || lower.endsWith('.yaml') || lower.endsWith('.blockmap') || lower === 'latest.json') {
+    return null;
+  }
+
+  // macOS
+  if (lower.endsWith('.dmg') || (lower.endsWith('.zip') && (lower.includes('mac') || lower.includes('darwin')))) {
+    return { platform: 'mac', arch: lower.includes('arm64') ? 'arm64' : (lower.includes('x64') ? 'x64' : 'universal'), groupKey: 'mac' };
+  }
+
+  // Windows
+  if (lower.endsWith('.exe') || lower.endsWith('.msi') || (lower.endsWith('.zip') && (lower.includes('win') || !lower.includes('mac')))) {
+    if (lower.includes('arm64')) {
+      return { platform: 'win', arch: 'arm64', groupKey: 'win_arm64' };
+    }
+    if (lower.includes('ia32') || lower.includes('x86') || lower.includes('32bit') || lower.includes('-ia32') || lower.includes('-32')) {
+      return { platform: 'win', arch: 'ia32', groupKey: 'win_ia32' };
+    }
+    return { platform: 'win', arch: 'x64', groupKey: 'win_x64' };
+  }
+
+  // Linux
+  if (lower.endsWith('.appimage') || lower.endsWith('.deb') || lower.endsWith('.rpm') || lower.endsWith('.pacman') || lower.endsWith('.snap') || lower.endsWith('.tar.xz') || lower.endsWith('.tar.gz')) {
+    if (lower.includes('arm64') || lower.includes('aarch64')) {
+      return { platform: 'linux', arch: 'arm64', groupKey: 'linux_arm64' };
+    }
+    if (lower.includes('armv7l') || lower.includes('armv7') || lower.includes('armhf') || (lower.includes('arm') && !lower.includes('arm64'))) {
+      return { platform: 'linux', arch: 'armv7l', groupKey: 'linux_armv7l' };
+    }
+    if (lower.includes('ia32') || lower.includes('i386') || lower.includes('i686') || lower.includes('32bit') || lower.includes('-ia32') || lower.includes('-32')) {
+      return { platform: 'linux', arch: 'ia32', groupKey: 'linux_ia32' };
+    }
+    return { platform: 'linux', arch: 'x64', groupKey: 'linux_x64' };
+  }
+
+  // app.asar
+  if (fileName === 'app.asar') {
+    return { platform: 'all', arch: 'universal', groupKey: 'all' };
+  }
+
+  return null;
+}
+
 function mergeUpdaterManifests(targetDir) {
   const dir = path.resolve(process.cwd(), targetDir || 'release-assets');
   if (!fs.existsSync(dir)) {
@@ -96,34 +146,69 @@ function mergeUpdaterManifests(targetDir) {
   const pkgVersion = fs.existsSync(pkgPath) ? JSON.parse(fs.readFileSync(pkgPath, 'utf8')).version : '1.0.4';
 
   console.log('====================================================');
-  console.log(` Merging Updater Manifests in: ${dir}`);
+  console.log(` Merging Multi-Arch Updater Manifests in: ${dir}`);
   console.log(` Target Version: v${pkgVersion}`);
   console.log('====================================================');
 
   const filesOnDisk = fs.readdirSync(dir);
 
-  // Groupings by platform
+  // Groupings by platform & architecture
   const groups = {
-    linux: {
-      outName: 'latest-linux.yml',
-      primaryExt: '.AppImage',
-      extensions: ['.AppImage', '.deb', '.rpm', '.pacman', '.snap', '.asar'],
-      filesMap: new Map(),
-      primaryFile: null
-    },
-    win: {
+    win_x64: {
       outName: 'latest.yml',
       primaryExt: '.exe',
-      extensions: ['.exe', '.msi', '.zip', '.asar'],
-      filesMap: new Map(),
-      primaryFile: null
+      platform: 'windows',
+      arch: 'x64',
+      filesMap: new Map()
+    },
+    win_ia32: {
+      outName: 'latest-ia32.yml',
+      primaryExt: '.exe',
+      platform: 'windows',
+      arch: 'ia32',
+      filesMap: new Map()
+    },
+    win_arm64: {
+      outName: 'latest-arm64.yml',
+      primaryExt: '.exe',
+      platform: 'windows',
+      arch: 'arm64',
+      filesMap: new Map()
+    },
+    linux_x64: {
+      outName: 'latest-linux.yml',
+      primaryExt: '.AppImage',
+      platform: 'linux',
+      arch: 'x64',
+      filesMap: new Map()
+    },
+    linux_ia32: {
+      outName: 'latest-linux-ia32.yml',
+      primaryExt: '.AppImage',
+      platform: 'linux',
+      arch: 'ia32',
+      filesMap: new Map()
+    },
+    linux_arm64: {
+      outName: 'latest-linux-arm64.yml',
+      primaryExt: '.AppImage',
+      platform: 'linux',
+      arch: 'arm64',
+      filesMap: new Map()
+    },
+    linux_armv7l: {
+      outName: 'latest-linux-arm.yml',
+      primaryExt: '.AppImage',
+      platform: 'linux',
+      arch: 'armv7l',
+      filesMap: new Map()
     },
     mac: {
       outName: 'latest-mac.yml',
       primaryExt: '.zip',
-      extensions: ['.zip', '.dmg', '.asar'],
-      filesMap: new Map(),
-      primaryFile: null
+      platform: 'mac',
+      arch: 'universal',
+      filesMap: new Map()
     }
   };
 
@@ -136,13 +221,19 @@ function mergeUpdaterManifests(targetDir) {
       if (parsed.files && parsed.files.length > 0) {
         console.log(`[INGEST] Found existing manifest "${yf}" with ${parsed.files.length} file entries.`);
         for (const item of parsed.files) {
-          const lowerUrl = item.url.toLowerCase();
-          if (lowerUrl.endsWith('.appimage') || lowerUrl.endsWith('.deb') || lowerUrl.endsWith('.rpm') || lowerUrl.endsWith('.pacman') || lowerUrl.endsWith('.snap')) {
-            groups.linux.filesMap.set(item.url, item);
-          } else if (lowerUrl.endsWith('.exe') || lowerUrl.endsWith('.msi')) {
-            groups.win.filesMap.set(item.url, item);
-          } else if (lowerUrl.endsWith('.dmg') || (lowerUrl.endsWith('.zip') && lowerUrl.includes('mac'))) {
-            groups.mac.filesMap.set(item.url, item);
+          const classification = classifyFile(item.url);
+          if (classification && classification.groupKey && groups[classification.groupKey]) {
+            groups[classification.groupKey].filesMap.set(item.url, item);
+          } else if (yf.includes('ia32') && yf.includes('linux')) {
+            groups.linux_ia32.filesMap.set(item.url, item);
+          } else if (yf.includes('arm64') && yf.includes('linux')) {
+            groups.linux_arm64.filesMap.set(item.url, item);
+          } else if ((yf.includes('armv7l') || yf.includes('arm')) && yf.includes('linux')) {
+            groups.linux_armv7l.filesMap.set(item.url, item);
+          } else if (yf.includes('ia32') && yf.includes('win')) {
+            groups.win_ia32.filesMap.set(item.url, item);
+          } else if (yf.includes('arm64') && yf.includes('win')) {
+            groups.win_arm64.filesMap.set(item.url, item);
           }
         }
       }
@@ -156,31 +247,24 @@ function mergeUpdaterManifests(targetDir) {
     const fullPath = path.join(dir, fileName);
     if (!fs.statSync(fullPath).isFile()) continue;
 
-    const lower = fileName.toLowerCase();
-    let targetGroup = null;
-
-    if (lower.endsWith('.appimage') || lower.endsWith('.deb') || lower.endsWith('.rpm') || lower.endsWith('.pacman') || lower.endsWith('.snap')) {
-      targetGroup = groups.linux;
-    } else if (lower.endsWith('.exe') || lower.endsWith('.msi') || (lower.endsWith('.zip') && lower.includes('win'))) {
-      targetGroup = groups.win;
-    } else if (lower.endsWith('.dmg') || (lower.endsWith('.zip') && (lower.includes('mac') || lower.includes('darwin')))) {
-      targetGroup = groups.mac;
-    } else if (fileName === 'app.asar') {
-      // Include app.asar in all manifests
-      ['linux', 'win', 'mac'].forEach(k => {
-        const g = groups[k];
+    if (fileName === 'app.asar') {
+      const hash = computeSha512Base64(fullPath);
+      const size = fs.statSync(fullPath).size;
+      Object.values(groups).forEach(g => {
         if (!g.filesMap.has('app.asar')) {
-          const hash = computeSha512Base64(fullPath);
-          const size = fs.statSync(fullPath).size;
           g.filesMap.set('app.asar', { url: 'app.asar', sha512: hash, size });
         }
       });
       continue;
     }
 
-    if (targetGroup) {
-      if (!targetGroup.filesMap.has(fileName)) {
-        console.log(`[HASH] Computing SHA-512 for uncatalogued binary: ${fileName}...`);
+    const classification = classifyFile(fileName);
+    if (!classification) continue;
+
+    const group = groups[classification.groupKey];
+    if (group) {
+      if (!group.filesMap.has(fileName)) {
+        console.log(`[HASH] Computing SHA-512 for [${classification.groupKey}] binary: ${fileName}...`);
         const sha512 = computeSha512Base64(fullPath);
         const size = fs.statSync(fullPath).size;
         const entry = { url: fileName, sha512, size };
@@ -191,18 +275,18 @@ function mergeUpdaterManifests(targetDir) {
           entry.blockMapSize = fs.statSync(blockMapPath).size;
         }
 
-        targetGroup.filesMap.set(fileName, entry);
+        group.filesMap.set(fileName, entry);
       }
     }
   }
 
   const nowIso = new Date().toISOString();
 
-  // 3. Generate unified manifest for each platform
+  // 3. Generate unified manifest for each platform & architecture
   for (const [key, group] of Object.entries(groups)) {
     const filesArray = Array.from(group.filesMap.values());
     if (filesArray.length === 0) {
-      console.log(`[SKIP] No files found for platform: ${key}`);
+      console.log(`[SKIP] No files found for group: ${key} (${group.outName})`);
       continue;
     }
 
@@ -224,16 +308,20 @@ function mergeUpdaterManifests(targetDir) {
     console.log(`✓ [SUCCESS] Generated unified ${group.outName} with ${filesArray.length} asset entries.`);
   }
 
-  // 4. Also generate unified latest.json for HTTP/web check endpoints
+  // 4. Generate unified latest.json for HTTP / API consumers with full metadata
   const allAssetEntries = [];
   const seenUrls = new Set();
-  for (const g of Object.values(groups)) {
+  for (const [key, g] of Object.entries(groups)) {
     for (const f of g.filesMap.values()) {
       if (!seenUrls.has(f.url)) {
         seenUrls.add(f.url);
+        const classification = classifyFile(f.url);
         allAssetEntries.push({
           name: f.url,
           size: f.size,
+          sha512: f.sha512,
+          platform: classification ? classification.platform : (g.platform || 'all'),
+          arch: classification ? classification.arch : (g.arch || 'universal'),
           browser_download_url: `https://github.com/binyaminyblatt/yom-kippur-diabetes-timer/releases/download/v${pkgVersion}/${f.url}`
         });
       }
@@ -244,11 +332,27 @@ function mergeUpdaterManifests(targetDir) {
     tag_name: `v${pkgVersion}`,
     name: `Yom Kippur Diabetes Timer v${pkgVersion}`,
     releaseDate: nowIso,
+    platforms: {
+      windows: {
+        x64: allAssetEntries.filter(a => a.platform === 'win' && a.arch === 'x64'),
+        ia32: allAssetEntries.filter(a => a.platform === 'win' && a.arch === 'ia32'),
+        arm64: allAssetEntries.filter(a => a.platform === 'win' && a.arch === 'arm64')
+      },
+      linux: {
+        x64: allAssetEntries.filter(a => a.platform === 'linux' && a.arch === 'x64'),
+        ia32: allAssetEntries.filter(a => a.platform === 'linux' && a.arch === 'ia32'),
+        arm64: allAssetEntries.filter(a => a.platform === 'linux' && a.arch === 'arm64'),
+        armv7l: allAssetEntries.filter(a => a.platform === 'linux' && a.arch === 'armv7l')
+      },
+      macos: {
+        universal: allAssetEntries.filter(a => a.platform === 'mac')
+      }
+    },
     assets: allAssetEntries
   };
 
   fs.writeFileSync(path.join(dir, 'latest.json'), JSON.stringify(latestJsonObj, null, 2), 'utf8');
-  console.log(`✓ [SUCCESS] Generated unified latest.json with ${allAssetEntries.length} total release assets.`);
+  console.log(`✓ [SUCCESS] Generated unified latest.json with ${allAssetEntries.length} total multi-arch release assets.`);
 }
 
 if (require.main === module) {
@@ -256,4 +360,4 @@ if (require.main === module) {
   mergeUpdaterManifests(targetDir);
 }
 
-module.exports = { mergeUpdaterManifests };
+module.exports = { mergeUpdaterManifests, classifyFile };
